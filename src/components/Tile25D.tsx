@@ -21,19 +21,19 @@ export interface Tile25DProps
 
 const VARIANT_STYLES: Record<Tile25DVariant, string> = {
   fixed:
-    'bg-slate-200/90 text-slate-900 border-slate-300 border-b-slate-400 cursor-default',
+    'bg-[#FEF3C7] text-amber-950 border-amber-300 border-b-amber-400 cursor-default',
   blank:
-    'bg-sky-100/90 hover:bg-sky-200/80 text-sky-600 border-dashed border-sky-400 border-b-sky-500',
+    'bg-rose-50/95 hover:bg-rose-100/90 text-rose-500 border-dashed border-rose-300 border-b-rose-400',
   tray:
-    'bg-white hover:bg-amber-50 text-slate-900 border-slate-300 border-b-slate-400',
+    'bg-[#FFFDF9] hover:bg-amber-50 text-slate-900 border-amber-200 border-b-amber-300',
   placed:
-    'bg-[#0EA5E9] hover:bg-[#0284C7] text-white border-[#0284C7] border-b-[#0369A1]',
+    'bg-[#8B5CF6] hover:bg-[#7C3AED] text-white border-[#7C3AED] border-b-[#5B21B6]',
   valid:
-    'bg-[#059669] text-white border-[#047857] border-b-[#065F46]',
+    'bg-[#10B981] text-white border-[#059669] border-b-[#047857]',
   invalid:
     'bg-[#F43F5E] text-white border-[#E11D48] border-b-[#BE123C]',
   hint:
-    'bg-[#FEF3C7] text-amber-900 border-[#F59E0B] border-b-[#D97706]',
+    'bg-[#FFEDD5] text-orange-950 border-[#FB923C] border-b-[#EA580C]',
 };
 
 const SQUARE_SIZE_STYLES: Record<'xs' | 'sm' | 'md' | 'lg', string> = {
@@ -63,9 +63,9 @@ export function Tile25D({
 }: Tile25DProps): React.JSX.Element {
   const variantClasses =
     selected && variant === 'tray'
-      ? 'bg-[#FBBF24] hover:bg-[#F59E0B] text-amber-950 border-[#D97706] border-b-[#B45309]'
+      ? 'bg-[#FF7A59] hover:bg-[#FF6842] text-white border-[#EA580C] border-b-[#C2410C]'
       : selected && variant === 'blank'
-        ? 'bg-sky-200/90 text-sky-700 border-solid border-sky-500 border-b-sky-600'
+        ? 'bg-violet-100 text-violet-700 border-solid border-violet-500 border-b-violet-600'
         : VARIANT_STYLES[variant];
 
   const interactiveClasses =
@@ -75,8 +75,8 @@ export function Tile25D({
 
   const selectedClasses = selected
     ? variant === 'blank'
-      ? 'ring-4 ring-sky-300 scale-105 shadow-lg z-10'
-      : 'ring-4 ring-amber-300 -translate-y-1.5 scale-110 shadow-xl z-10'
+      ? 'ring-4 ring-violet-300 scale-105 shadow-lg z-10'
+      : 'ring-4 ring-orange-300 -translate-y-1.5 scale-110 shadow-xl z-10'
     : '';
 
   const sizeClasses =

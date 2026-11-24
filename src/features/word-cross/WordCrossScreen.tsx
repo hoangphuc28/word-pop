@@ -893,16 +893,16 @@ export function WordCrossScreen({
         : 'max-w-[280px] sm:max-w-[340px]';
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-3 px-3 pb-8 pt-3 sm:px-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-3 pb-8 pt-3 sm:px-5">
       {/* Top HUD */}
-      <header className="flex items-center justify-between gap-2 rounded-2xl bg-white/90 px-3 py-2 border-2 border-slate-200/80 border-b-[4px] border-b-slate-300/90 card-25d">
+      <header className="flex items-center justify-between gap-2 rounded-2xl bg-white/95 px-3 py-2 border-2 border-amber-200/80 border-b-[4px] border-b-amber-300/80 card-25d">
         <Button25D color="white" size="sm" onClick={onBack} className="px-2.5 py-1.5">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">{t(lang, 'game.back')}</span>
         </Button25D>
 
         <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-extrabold text-sky-800 border border-sky-200">
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-extrabold text-rose-800 border border-rose-200">
             {isEndless && <InfinityIcon className="h-3.5 w-3.5" aria-hidden="true" />}
             <span>{t(lang, `levels.${effectiveLevel}`)}</span>
           </span>
@@ -990,236 +990,254 @@ export function WordCrossScreen({
         </div>
       )}
 
-      {/* Crossword Board */}
-      <Card25D className="touch-pan-y px-2.5 py-4 sm:p-5">
-        <motion.div
-          key={`board-shake-${shakeTick}`}
-          animate={
-            shakeTick > 0
-              ? { x: [0, -8, 8, -6, 6, -3, 3, 0] }
-              : { x: 0 }
-          }
-          transition={{ duration: 0.38 }}
-          className={`mx-auto grid gap-1 sm:gap-1.5 ${gridMaxWidthClass}`}
-          style={{
-            gridTemplateColumns: `repeat(${puzzle.cols}, minmax(0, 1fr))`,
-          }}
-        >
-          {Array.from({ length: puzzle.rows * puzzle.cols }).map((_, idx) => {
-            const r = Math.floor(idx / puzzle.cols);
-            const c = idx % puzzle.cols;
-            const cellId = `${r},${c}`;
-            const cell = puzzle.cells[cellId];
-
-            if (!cell) {
-              return <div key={cellId} aria-hidden="true" className="aspect-square" />;
-            }
-
-            const isHinted = hintedCellIds.has(cellId);
-            const isInvalid = invalidCellIds.has(cellId);
-            const isSelected = selectedCellId === cellId;
-            const inActiveWord = activeEntryCellSet.has(cellId);
-            const displayLetter =
-              cell.kind === 'fixed'
-                ? cell.solution
-                : (currentLetters[cellId] ?? '');
-
-            let variant: Tile25DVariant = 'fixed';
-            if (cell.kind === 'blank') {
-              if (isSolved) variant = 'valid';
-              else if (isInvalid) variant = 'invalid';
-              else if (isHinted) variant = 'hint';
-              else if (displayLetter.length > 0) variant = 'placed';
-              else variant = 'blank';
-            } else if (isSolved) {
-              variant = 'valid';
-            }
-
-            const placedItem = !isSuperMode ? placements[cellId] : undefined;
-
-            return (
-              <div key={cellId} className="flex items-center justify-center">
-                <Tile25D
-                  data-testid={`cell-${cellId}`}
-                  data-cell-id={cellId}
-                  data-hinted={isHinted ? 'true' : 'false'}
-                  value={displayLetter}
-                  variant={variant}
-                  size={tileSize}
-                  selected={isSelected && !isSolved}
-                  clueNumber={cell.clueNumbers?.[0]}
-                  onClick={() => handleCellClick(cellId)}
-                  onPointerDown={
-                    placedItem && !isHinted
-                      ? (e) => startPointerDrag(e, placedItem, cellId)
-                      : undefined
-                  }
-                  className={[
-                    '!w-full !h-auto aspect-square',
-                    inActiveWord && !isSelected && !isSolved
-                      ? 'ring-2 ring-sky-300/80'
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                />
-              </div>
-            );
-          })}
-        </motion.div>
-      </Card25D>
-
-      {/* Clues Panel (hidden during Review Mode since WordReviewList shows full cards) */}
-      {!isReviewing && (
-        <Card25D data-testid="word-cross-clues" className="p-3.5 sm:p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-display text-sm font-extrabold uppercase tracking-wide text-slate-600">
-              {t(lang, 'game.clues')}
-            </h2>
-            <span className="text-xs font-semibold text-slate-400">
-              {isSuperMode
-                ? t(lang, 'game.superModeHint')
-                : t(lang, 'game.trayHint')}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {puzzle.entries.map((entry) => {
-              const isActive = activeEntry?.number === entry.number;
-              const clueText = lang === 'vi' ? entry.vocab.vi : entry.vocab.en;
-              const arrow = entry.direction === 'across' ? '→' : '↓';
-              return (
-                <div
-                  key={`${entry.number}-${entry.direction}`}
-                  onClick={() => handleSelectClue(entry.number)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleSelectClue(entry.number);
-                    }
-                  }}
-                  className={[
-                    'flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left transition-all cursor-pointer border-2',
-                    isActive
-                      ? 'bg-sky-50 border-sky-300 text-sky-950'
-                      : 'bg-slate-50/80 border-slate-200/70 text-slate-700 hover:bg-slate-100/80',
-                  ].join(' ')}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-flex items-center rounded-md bg-sky-500 px-1.5 py-0.5 text-[11px] font-extrabold text-white">
-                        {entry.number} {arrow}
-                      </span>
-                      <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-extrabold text-violet-700">
-                        {entry.vocab.pos}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-xs sm:text-sm font-bold">
-                      {clueText}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    aria-label={`${t(lang, 'game.listen')} ${entry.number}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      speechEngine.speak(entry.vocab.word);
-                    }}
-                    className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white hover:bg-sky-100 text-sky-600 border border-slate-200 border-b-[3px] border-b-slate-300 cursor-pointer active:translate-y-[1px]"
-                  >
-                    <Volume2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </Card25D>
-      )}
-
-      {/* Gameplay Controls (hidden during Review Mode) */}
-      {!isReviewing && (
-        <>
-          {/* Action Bar */}
-          <div className="grid grid-cols-3 gap-2">
-            <Button25D
-              color="sunny"
-              size="md"
-              onClick={handleHint}
-              disabled={isSolved || isGameOver}
-              className="px-3"
+      {/* Split 2-column Crossword Book Layout on desktop (stacked on mobile) */}
+      <div
+        className={
+          !isReviewing
+            ? 'grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)] lg:items-start'
+            : 'flex flex-col gap-3'
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {/* Crossword Board */}
+          <Card25D className="touch-pan-y border-amber-200/80 bg-[#FFFDF9]/95 px-2.5 py-4 sm:p-5">
+            <motion.div
+              key={`board-shake-${shakeTick}`}
+              animate={
+                shakeTick > 0
+                  ? { x: [0, -8, 8, -6, 6, -3, 3, 0] }
+                  : { x: 0 }
+              }
+              transition={{ duration: 0.38 }}
+              className={`mx-auto grid gap-1 sm:gap-1.5 ${gridMaxWidthClass}`}
+              style={{
+                gridTemplateColumns: `repeat(${puzzle.cols}, minmax(0, 1fr))`,
+              }}
             >
-              <Lightbulb className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{t(lang, 'game.hint')}</span>
-            </Button25D>
+              {Array.from({ length: puzzle.rows * puzzle.cols }).map((_, idx) => {
+                const r = Math.floor(idx / puzzle.cols);
+                const c = idx % puzzle.cols;
+                const cellId = `${r},${c}`;
+                const cell = puzzle.cells[cellId];
 
-            <Button25D
-              color={confirmClearAll ? 'coral' : 'white'}
-              size="md"
-              onClick={handleClear}
-              disabled={isSolved || isGameOver || editablePlacedCount === 0}
-              className="px-3"
-            >
-              <Eraser className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>
-                {confirmClearAll
-                  ? t(lang, 'game.confirmClear')
-                  : t(lang, 'game.clear')}
-              </span>
-            </Button25D>
+                if (!cell) {
+                  return <div key={cellId} aria-hidden="true" className="aspect-square" />;
+                }
 
-            <Button25D
-              color="mint"
-              size="md"
-              onClick={handleCheck}
-              disabled={isSolved || isGameOver || !allBlanksFilled}
-              className="px-3"
-            >
-              <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{t(lang, 'game.check')}</span>
-            </Button25D>
-          </div>
+                const isHinted = hintedCellIds.has(cellId);
+                const isInvalid = invalidCellIds.has(cellId);
+                const isSelected = selectedCellId === cellId;
+                const inActiveWord = activeEntryCellSet.has(cellId);
+                const displayLetter =
+                  cell.kind === 'fixed'
+                    ? cell.solution
+                    : (currentLetters[cellId] ?? '');
 
-          {/* Standard Mode: Letter Tray */}
-          {!isSuperMode && (
-            <Card25D data-testid="word-cross-tray" className="p-3.5">
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {trayItems.map((item) => {
-                  const isUsed = usedTrayIds.has(item.trayId);
-                  return (
+                let variant: Tile25DVariant = 'fixed';
+                if (cell.kind === 'blank') {
+                  if (isSolved) variant = 'valid';
+                  else if (isInvalid) variant = 'invalid';
+                  else if (isHinted) variant = 'hint';
+                  else if (displayLetter.length > 0) variant = 'placed';
+                  else variant = 'blank';
+                } else if (isSolved) {
+                  variant = 'valid';
+                }
+
+                const placedItem = !isSuperMode ? placements[cellId] : undefined;
+
+                return (
+                  <div key={cellId} className="flex items-center justify-center">
                     <Tile25D
-                      key={item.trayId}
-                      data-used={isUsed ? 'true' : 'false'}
-                      value={item.letter}
-                      variant="tray"
-                      size="sm"
-                      selected={selectedTrayId === item.trayId}
-                      disabled={isUsed || isSolved || isGameOver}
-                      onClick={() => handleTrayClick(item)}
-                      onPointerDown={(e) => startPointerDrag(e, item)}
-                      className={isUsed ? 'opacity-25 scale-90' : ''}
+                      data-testid={`cell-${cellId}`}
+                      data-cell-id={cellId}
+                      data-hinted={isHinted ? 'true' : 'false'}
+                      value={displayLetter}
+                      variant={variant}
+                      size={tileSize}
+                      selected={isSelected && !isSolved}
+                      clueNumber={cell.clueNumbers?.[0]}
+                      onClick={() => handleCellClick(cellId)}
+                      onPointerDown={
+                        placedItem && !isHinted
+                          ? (e) => startPointerDrag(e, placedItem, cellId)
+                          : undefined
+                      }
+                      className={[
+                        '!w-full !h-auto aspect-square',
+                        inActiveWord && !isSelected && !isSolved
+                          ? 'ring-2 ring-violet-300/90'
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                     />
-                  );
-                })}
-              </div>
-            </Card25D>
-          )}
+                  </div>
+                );
+              })}
+            </motion.div>
+          </Card25D>
 
-          {/* Super Mode: On-screen QWERTY bar */}
-          {isSuperMode && (
-            <Card25D className="p-2.5 sm:p-3">
-              <QwertyBar25D
-                onKey={handleTypeLetter}
-                onBackspace={handleBackspace}
-                onSubmit={allBlanksFilled ? handleCheck : undefined}
-                disabled={isSolved || isGameOver}
-              />
-            </Card25D>
+          {/* Gameplay Controls (hidden during Review Mode) */}
+          {!isReviewing && (
+            <>
+              {/* Action Bar */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button25D
+                  color="sunny"
+                  size="md"
+                  onClick={handleHint}
+                  disabled={isSolved || isGameOver}
+                  className="px-3"
+                >
+                  <Lightbulb className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{t(lang, 'game.hint')}</span>
+                </Button25D>
+
+                <Button25D
+                  color={confirmClearAll ? 'coral' : 'white'}
+                  size="md"
+                  onClick={handleClear}
+                  disabled={isSolved || isGameOver || editablePlacedCount === 0}
+                  className="px-3"
+                >
+                  <Eraser className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    {confirmClearAll
+                      ? t(lang, 'game.confirmClear')
+                      : t(lang, 'game.clear')}
+                  </span>
+                </Button25D>
+
+                <Button25D
+                  color="mint"
+                  size="md"
+                  onClick={handleCheck}
+                  disabled={isSolved || isGameOver || !allBlanksFilled}
+                  className="px-3"
+                >
+                  <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{t(lang, 'game.check')}</span>
+                </Button25D>
+              </div>
+
+              {/* Standard Mode: Letter Tray */}
+              {!isSuperMode && (
+                <Card25D data-testid="word-cross-tray" className="border-amber-200/80 p-3.5">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {trayItems.map((item) => {
+                      const isUsed = usedTrayIds.has(item.trayId);
+                      return (
+                        <Tile25D
+                          key={item.trayId}
+                          data-used={isUsed ? 'true' : 'false'}
+                          value={item.letter}
+                          variant="tray"
+                          size="sm"
+                          selected={selectedTrayId === item.trayId}
+                          disabled={isUsed || isSolved || isGameOver}
+                          onClick={() => handleTrayClick(item)}
+                          onPointerDown={(e) => startPointerDrag(e, item)}
+                          className={isUsed ? 'opacity-25 scale-90' : ''}
+                        />
+                      );
+                    })}
+                  </div>
+                </Card25D>
+              )}
+
+              {/* Super Mode: On-screen QWERTY bar */}
+              {isSuperMode && (
+                <Card25D className="border-amber-200/80 p-2.5 sm:p-3">
+                  <QwertyBar25D
+                    onKey={handleTypeLetter}
+                    onBackspace={handleBackspace}
+                    onSubmit={allBlanksFilled ? handleCheck : undefined}
+                    disabled={isSolved || isGameOver}
+                  />
+                </Card25D>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+
+        {/* Clues Notebook Panel (Right column on desktop, hidden during Review Mode) */}
+        {!isReviewing && (
+          <Card25D
+            data-testid="word-cross-clues"
+            className="border-amber-200/80 bg-[#FFFDF9]/95 p-3.5 sm:p-4"
+          >
+            <div className="mb-2.5 flex items-center justify-between gap-2">
+              <h2 className="font-display text-sm font-extrabold uppercase tracking-wide text-amber-900/80">
+                {t(lang, 'game.clues')}
+              </h2>
+              <span className="text-[11px] font-semibold text-slate-400">
+                {isSuperMode
+                  ? t(lang, 'game.superModeHint')
+                  : t(lang, 'game.trayHint')}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+              {puzzle.entries.map((entry) => {
+                const isActive = activeEntry?.number === entry.number;
+                const clueText = lang === 'vi' ? entry.vocab.vi : entry.vocab.en;
+                const arrow = entry.direction === 'across' ? '→' : '↓';
+                return (
+                  <div
+                    key={`${entry.number}-${entry.direction}`}
+                    onClick={() => handleSelectClue(entry.number)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectClue(entry.number);
+                      }
+                    }}
+                    className={[
+                      'flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left transition-all cursor-pointer border-2',
+                      isActive
+                        ? 'bg-rose-50/90 border-rose-300 text-rose-950'
+                        : 'bg-white border-amber-100 text-slate-700 hover:bg-amber-50/60',
+                    ].join(' ')}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center rounded-md bg-gradient-to-r from-[#FF7A59] to-[#F43F5E] px-1.5 py-0.5 text-[11px] font-extrabold text-white">
+                          {entry.number} {arrow}
+                        </span>
+                        <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-extrabold text-violet-700">
+                          {entry.vocab.pos}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs sm:text-sm font-bold leading-snug">
+                        {clueText}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      aria-label={`${t(lang, 'game.listen')} ${entry.number}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (entry.vocab.audioUrl) {
+                          speechEngine.speak(entry.vocab.word, entry.vocab.audioUrl);
+                        } else {
+                          speechEngine.speak(entry.vocab.word);
+                        }
+                      }}
+                      className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white hover:bg-rose-100 text-rose-600 border border-rose-200 border-b-[3px] border-b-rose-300 cursor-pointer active:translate-y-[1px]"
+                    >
+                      <Volume2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card25D>
+        )}
+      </div>
 
       {/* Review Mode: Vocabulary Review List */}
       {isReviewing && (

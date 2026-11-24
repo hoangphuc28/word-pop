@@ -31,6 +31,10 @@ export interface VocabEntry {
   vi: string;
   example: string;
   exampleVi: string;
+  /** Optional native pronunciation MP3 URL (e.g. from Free Dictionary API) */
+  audioUrl?: string;
+  /** Origin of this vocabulary entry */
+  source?: 'curated' | 'online';
 }
 
 export interface PlayConfig {

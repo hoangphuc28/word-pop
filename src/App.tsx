@@ -7,6 +7,12 @@ import { SettingsModal } from './components/SettingsModal';
 import { SplashScreen } from './components/SplashScreen';
 import { StatsModal } from './components/StatsModal';
 import {
+  expandVocabularyOnline,
+  hydrateOnlineVocabulary,
+} from './data/liveVocabService';
+import { getAllVocabulary } from './data/vocabulary';
+import { t } from './i18n';
+import {
   getPrioritizedWordKeys,
   recordWordAttempt,
 } from './engine/spacedRepetition';
@@ -49,6 +55,12 @@ export default function App({
   const [statsOpen, setStatsOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [vocabTotalCount, setVocabTotalCount] = useState<number>(() => {
+    hydrateOnlineVocabulary();
+    return getAllVocabulary().length;
+  });
+  const [isExpandingVocab, setIsExpandingVocab] = useState(false);
+  const [expandVocabNotice, setExpandVocabNotice] = useState<string | null>(null);
 
   const stageRef = useRef<HTMLDivElement | null>(null);
 
@@ -275,6 +287,23 @@ export default function App({
     setActiveConfig(null);
   }, []);
 
+  const handleExpandVocab = useCallback(async () => {
+    if (isExpandingVocab) return;
+    setIsExpandingVocab(true);
+    setExpandVocabNotice(null);
+    const result = await expandVocabularyOnline({ count: 12 });
+    setVocabTotalCount(result.totalAll);
+    setIsExpandingVocab(false);
+    if (result.offline) {
+      setExpandVocabNotice(t(progress.settings.lang, 'home.offlineVocab'));
+    } else if (result.added > 0) {
+      soundEngine.playSuccess();
+      setExpandVocabNotice(
+        t(progress.settings.lang, 'home.expandedVocab', { count: result.added })
+      );
+    }
+  }, [isExpandingVocab, progress.settings.lang]);
+
   const handleRecordAttempt = useCallback(
     (
       wordIds: string[],
@@ -406,7 +435,7 @@ export default function App({
             className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none"
           >
             <span
-              className="animate-gentle-float absolute top-[6%] left-[3%] flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-300/20 border border-white/60 font-display text-2xl font-extrabold text-sky-600/30"
+              className="animate-gentle-float absolute top-[6%] left-[3%] flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-300/20 border border-white/60 font-display text-2xl font-extrabold text-rose-500/30"
               style={{ '--float-rot': '-12deg', '--float-dur': '9s' } as React.CSSProperties}
             >
               A
@@ -424,7 +453,7 @@ export default function App({
               W
             </span>
             <span
-              className="animate-gentle-float hidden sm:flex absolute top-[52%] right-[2.5%] h-9 w-9 items-center justify-center rounded-2xl bg-emerald-300/20 border border-white/60 font-display text-xl font-extrabold text-emerald-600/30"
+              className="animate-gentle-float hidden sm:flex absolute top-[52%] right-[2.5%] h-9 w-9 items-center justify-center rounded-2xl bg-teal-300/20 border border-white/60 font-display text-xl font-extrabold text-teal-600/30"
               style={{ '--float-rot': '-10deg', '--float-dur': '8.5s' } as React.CSSProperties}
             >
               Z
@@ -436,7 +465,7 @@ export default function App({
               P
             </span>
             <span
-              className="animate-gentle-float absolute bottom-[7%] right-[4%] flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-300/20 border border-white/60 font-display text-xl font-extrabold text-sky-600/30"
+              className="animate-gentle-float absolute bottom-[7%] right-[4%] flex h-11 w-11 items-center justify-center rounded-2xl bg-fuchsia-300/20 border border-white/60 font-display text-xl font-extrabold text-fuchsia-500/30"
               style={{ '--float-rot': '11deg', '--float-dur': '9.5s' } as React.CSSProperties}
             >
               ?
@@ -451,6 +480,10 @@ export default function App({
                 playedToday={playedToday}
                 bestEndlessScore={progress.bestEndlessScore ?? 0}
                 isFullscreen={isFullscreen}
+                vocabTotalCount={vocabTotalCount}
+                isExpandingVocab={isExpandingVocab}
+                expandVocabNotice={expandVocabNotice}
+                onExpandVocab={() => void handleExpandVocab()}
                 onToggleFullscreen={handleToggleFullscreen}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onStartPlay={handleStartPlay}

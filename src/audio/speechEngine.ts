@@ -30,6 +30,7 @@ function getUtteranceConstructor(): typeof SpeechSynthesisUtterance | null {
 class WebSpeechEngine {
   private enabled = true;
   private volume = 0.85;
+  private activeAudio: HTMLAudioElement | null = null;
 
   public setEnabled(enabled: boolean): void {
     this.enabled = enabled;
@@ -44,6 +45,9 @@ class WebSpeechEngine {
 
   public setVolume(volume: number): void {
     this.volume = clampVolume(volume);
+    if (this.activeAudio) {
+      this.activeAudio.volume = this.volume;
+    }
   }
 
   public getVolume(): number {
@@ -54,23 +58,13 @@ class WebSpeechEngine {
     return getSpeechSynthesis() !== null && getUtteranceConstructor() !== null;
   }
 
-  public speak(text: string): void {
-    if (!this.enabled || this.volume <= 0.001) {
-      return;
-    }
-    const trimmed = text.trim();
-    if (!trimmed) {
-      return;
-    }
+  private speakWithSynthesis(trimmed: string): void {
     const synth = getSpeechSynthesis();
     const UtteranceCtor = getUtteranceConstructor();
     if (!synth || !UtteranceCtor) {
       return;
     }
     try {
-      if (typeof synth.cancel === 'function') {
-        synth.cancel();
-      }
       const utterance = new UtteranceCtor(trimmed);
       utterance.lang = 'en-US';
       utterance.rate = 0.92;
@@ -81,7 +75,50 @@ class WebSpeechEngine {
     }
   }
 
+  public speak(text: string, audioUrl?: string): void {
+    if (!this.enabled || this.volume <= 0.001) {
+      return;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    this.stop();
+
+    if (audioUrl && typeof globalThis.Audio === 'function') {
+      try {
+        const audio = new globalThis.Audio(audioUrl);
+        audio.volume = this.volume;
+        this.activeAudio = audio;
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          void playPromise.catch(() => {
+            if (this.activeAudio === audio) {
+              this.activeAudio = null;
+            }
+            this.speakWithSynthesis(trimmed);
+          });
+        }
+        return;
+      } catch {
+        this.activeAudio = null;
+      }
+    }
+
+    this.speakWithSynthesis(trimmed);
+  }
+
   public stop(): void {
+    if (this.activeAudio) {
+      try {
+        this.activeAudio.pause();
+        this.activeAudio.currentTime = 0;
+      } catch {
+        // Safe no-op
+      }
+      this.activeAudio = null;
+    }
     const synth = getSpeechSynthesis();
     if (!synth || typeof synth.cancel !== 'function') {
       return;
@@ -99,7 +136,7 @@ export const speechEngine: {
   isEnabled(): boolean;
   setVolume(volume: number): void;
   getVolume(): number;
-  speak(text: string): void;
+  speak(text: string, audioUrl?: string): void;
   stop(): void;
   isSupported(): boolean;
 } = new WebSpeechEngine();

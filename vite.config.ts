@@ -17,8 +17,8 @@ export default defineConfig({
       manifest: {
         name: 'WordPop',
         short_name: 'WordPop',
-        theme_color: '#38BDF8',
-        background_color: '#F4F7FF',
+        theme_color: '#FF7A59',
+        background_color: '#FFFBF5',
         display: 'standalone',
         icons: [
           {

@@ -5,6 +5,7 @@ import {
   BookOpen,
   Briefcase,
   ChevronRight,
+  CloudDownload,
   Cpu,
   Flame,
   Globe2,
@@ -14,6 +15,7 @@ import {
   Home,
   Infinity as InfinityIcon,
   Leaf,
+  Loader2,
   type LucideIcon,
   Maximize2,
   Minimize2,
@@ -47,6 +49,10 @@ export interface HomeHubProps {
   playedToday?: boolean;
   bestEndlessScore?: number;
   isFullscreen?: boolean;
+  vocabTotalCount?: number;
+  isExpandingVocab?: boolean;
+  expandVocabNotice?: string | null;
+  onExpandVocab?: () => void;
   onToggleFullscreen?: () => void;
   onOpenSettings?: () => void;
   onStartPlay: (config: PlayConfig) => void;
@@ -82,6 +88,10 @@ export function HomeHub({
   playedToday = false,
   bestEndlessScore = 0,
   isFullscreen = false,
+  vocabTotalCount = 384,
+  isExpandingVocab = false,
+  expandVocabNotice = null,
+  onExpandVocab,
   onToggleFullscreen,
   onOpenSettings,
   onStartPlay,
@@ -147,10 +157,10 @@ export function HomeHub({
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 lg:px-10 py-5 sm:py-7 lg:py-8 flex flex-col gap-5 lg:gap-6">
-      {/* Minimal Header — chunky balanced logo + 2 clean utility buttons */}
+      {/* Minimal Header — chunky warm WordPop logo + 2 clean utility buttons */}
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-13 w-13 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7DD3FC] to-[#38BDF8] border-b-[5px] border-[#0284C7] shadow-sm">
+          <div className="flex h-13 w-13 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF8A65] via-[#F43F5E] to-[#8B5CF6] border-b-[5px] border-[#6D28D9] shadow-sm">
             <img
               src="/icon-192.svg"
               alt=""
@@ -160,7 +170,7 @@ export function HomeHub({
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-800 leading-none whitespace-nowrap">
             <span>Word</span>
-            <span className="bg-gradient-to-r from-[#0EA5E9] to-[#2563EB] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#FF7A59] via-[#F43F5E] to-[#8B5CF6] bg-clip-text text-transparent">
               Pop
             </span>
           </h1>
@@ -184,9 +194,9 @@ export function HomeHub({
               className="!p-3"
             >
               {isFullscreen ? (
-                <Minimize2 className="w-5 h-5 text-sky-600" aria-hidden="true" />
+                <Minimize2 className="w-5 h-5 text-rose-500" aria-hidden="true" />
               ) : (
-                <Maximize2 className="w-5 h-5 text-sky-600" aria-hidden="true" />
+                <Maximize2 className="w-5 h-5 text-rose-500" aria-hidden="true" />
               )}
             </Button25D>
           )}
@@ -217,58 +227,104 @@ export function HomeHub({
           transition={{ duration: 0.16 }}
           className={`flex flex-col gap-4 ${isFullscreen ? 'pt-6 sm:pt-1' : 'pt-1'}`}
         >
-          {/* Daily Streak Hero Banner */}
-          <div
-            data-testid="daily-streak-banner"
-            className="flex items-center justify-between gap-4 rounded-3xl border-2 border-amber-200 border-b-[5px] border-b-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/90 to-rose-50/80 px-5 py-4 shadow-sm"
-          >
-            <div className="flex items-center gap-3.5">
-              <div
-                className={[
-                  'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 shadow-sm',
-                  playedToday
-                    ? 'bg-gradient-to-br from-[#FBBF24] to-[#FF7A59] border-[#EA580C] text-white'
-                    : 'bg-white border-amber-200 text-amber-400',
-                ].join(' ')}
-              >
-                <Flame
-                  className={`h-7 w-7 ${playedToday ? 'fill-white' : 'fill-amber-200'}`}
-                  aria-hidden="true"
-                />
-              </div>
-              <div>
-                <div className="font-display text-lg sm:text-xl font-extrabold text-slate-800 leading-tight">
-                  {dailyStreak > 0
-                    ? t(lang, 'home.dailyStreakCount', { count: dailyStreak })
-                    : t(lang, 'home.dailyStreakZero')}
+          {/* Top Status Strip: Daily Streak + Live Vocabulary Bank */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
+            {/* Daily Streak Hero Banner */}
+            <div
+              data-testid="daily-streak-banner"
+              className="flex items-center justify-between gap-3 rounded-3xl border-2 border-amber-200 border-b-[5px] border-b-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/90 to-rose-50/80 px-4 py-3.5 shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={[
+                    'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-b-4 shadow-sm',
+                    playedToday
+                      ? 'bg-gradient-to-br from-[#FBBF24] to-[#FF7A59] border-[#EA580C] text-white'
+                      : 'bg-white border-amber-200 text-amber-400',
+                  ].join(' ')}
+                >
+                  <Flame
+                    className={`h-6 w-6 ${playedToday ? 'fill-white' : 'fill-amber-200'}`}
+                    aria-hidden="true"
+                  />
                 </div>
-                <p className="text-xs sm:text-sm font-bold text-amber-800/80">
-                  {playedToday
-                    ? t(lang, 'home.dailyStreakActive')
-                    : t(lang, 'home.dailyStreakPrompt')}
-                </p>
+                <div>
+                  <div className="font-display text-base sm:text-lg font-extrabold text-slate-800 leading-tight">
+                    {dailyStreak > 0
+                      ? t(lang, 'home.dailyStreakCount', { count: dailyStreak })
+                      : t(lang, 'home.dailyStreakZero')}
+                  </div>
+                  <p className="text-xs font-bold text-amber-800/80">
+                    {playedToday
+                      ? t(lang, 'home.dailyStreakActive')
+                      : t(lang, 'home.dailyStreakPrompt')}
+                  </p>
+                </div>
+              </div>
+
+              {/* 7-day flame dots */}
+              <div className="hidden sm:flex items-center gap-1" aria-hidden="true">
+                {Array.from({ length: 7 }).map((_, idx) => {
+                  const filledCount = Math.min(7, dailyStreak);
+                  const lit = idx < filledCount;
+                  return (
+                    <span
+                      key={idx}
+                      className={[
+                        'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all',
+                        lit
+                          ? 'bg-gradient-to-b from-amber-400 to-orange-500 border-orange-500 text-white shadow-xs'
+                          : 'bg-white/80 border-amber-200 text-amber-200',
+                      ].join(' ')}
+                    >
+                      <Flame className={`h-3 w-3 ${lit ? 'fill-white' : ''}`} />
+                    </span>
+                  );
+                })}
               </div>
             </div>
 
-            {/* 7-day flame dots */}
-            <div className="hidden sm:flex items-center gap-1.5" aria-hidden="true">
-              {Array.from({ length: 7 }).map((_, idx) => {
-                const filledCount = Math.min(7, dailyStreak);
-                const lit = idx < filledCount;
-                return (
-                  <span
-                    key={idx}
-                    className={[
-                      'flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all',
-                      lit
-                        ? 'bg-gradient-to-b from-amber-400 to-orange-500 border-orange-500 text-white shadow-xs'
-                        : 'bg-white/80 border-amber-200 text-amber-200',
-                    ].join(' ')}
-                  >
-                    <Flame className={`h-3.5 w-3.5 ${lit ? 'fill-white' : ''}`} />
+            {/* Live Vocabulary Bank Card */}
+            <div
+              data-testid="vocab-bank-card"
+              className="flex items-center justify-between gap-2.5 rounded-3xl border-2 border-violet-200 border-b-[5px] border-b-violet-300 bg-gradient-to-r from-violet-50/90 via-fuchsia-50/70 to-white px-4 py-3.5 shadow-sm"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 font-display text-base sm:text-lg font-extrabold text-violet-950 leading-tight">
+                  <BookOpen className="h-4.5 w-4.5 shrink-0 text-violet-600" aria-hidden="true" />
+                  <span className="truncate">
+                    {t(lang, 'home.vocabBank', { count: vocabTotalCount })}
                   </span>
-                );
-              })}
+                </div>
+                {expandVocabNotice && (
+                  <p className="mt-0.5 text-xs font-extrabold text-emerald-600">
+                    {expandVocabNotice}
+                  </p>
+                )}
+              </div>
+
+              {onExpandVocab && (
+                <button
+                  type="button"
+                  disabled={isExpandingVocab}
+                  onClick={() => {
+                    soundEngine.playPop();
+                    onExpandVocab();
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border-2 border-violet-300 border-b-[4px] border-b-violet-400 bg-white px-3 py-1.5 font-display text-xs font-extrabold text-violet-700 hover:bg-violet-50 active:translate-y-[2px] active:border-b-2 disabled:opacity-60 cursor-pointer transition-all"
+                >
+                  {isExpandingVocab ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <CloudDownload className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  <span>
+                    {isExpandingVocab
+                      ? t(lang, 'home.expandingVocab')
+                      : t(lang, 'home.expandVocab')}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -291,8 +347,8 @@ export function HomeHub({
               className={[
                 'inline-flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs sm:text-sm font-display font-extrabold transition-all duration-150 cursor-pointer select-none',
                 superMode
-                  ? 'bg-gradient-to-r from-violet-500 to-indigo-500 border-violet-600 text-white shadow-sm'
-                  : 'bg-white/90 border-slate-200 text-slate-600 hover:border-violet-300 hover:text-violet-600',
+                  ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 border-violet-600 text-white shadow-sm'
+                  : 'bg-white/90 border-amber-200 text-slate-600 hover:border-violet-300 hover:text-violet-600',
               ].join(' ')}
             >
               <Sparkles
@@ -317,86 +373,114 @@ export function HomeHub({
             </button>
           </div>
 
-          {/* Card 1: Quick Play */}
-          <button
-            type="button"
-            onClick={() => handleChooseSession('quick')}
-            className="group flex items-center gap-4 rounded-3xl border-2 border-sky-200 border-b-[6px] border-b-sky-400 bg-white p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:bg-sky-50/70 active:translate-y-[3px] active:border-b-2 cursor-pointer"
-          >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#38BDF8] border-b-4 border-[#0284C7] text-white shadow-sm">
-              <Zap className="h-7 w-7 fill-white" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
-                {t(lang, 'home.quickMode')}
+          {/* Distinct Bento Grid: Featured Quick Play Hero + 2 Side-by-Side Mode Cards */}
+          <div className="flex flex-col gap-3.5">
+            {/* Hero Card: Quick Play */}
+            <button
+              type="button"
+              onClick={() => handleChooseSession('quick')}
+              className="group flex items-center gap-4 rounded-3xl border-2 border-orange-200 border-b-[6px] border-b-orange-400 bg-gradient-to-r from-white via-orange-50/60 to-rose-50/70 p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:from-orange-50/80 hover:to-rose-100/70 active:translate-y-[3px] active:border-b-2 cursor-pointer"
+            >
+              <div className="flex h-15 w-15 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF8A65] to-[#F43F5E] border-b-4 border-[#BE123C] text-white shadow-sm">
+                <Zap className="h-8 w-8 fill-white" aria-hidden="true" />
               </div>
-              <p className="text-sm font-bold text-slate-500">
-                {t(lang, 'home.quickModeDesc')}
-              </p>
-            </div>
-            <ChevronRight
-              className="h-6 w-6 text-sky-400 transition-transform group-hover:translate-x-1"
-              aria-hidden="true"
-            />
-          </button>
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
+                  {t(lang, 'home.quickMode')}
+                </div>
+                <p className="text-sm font-bold text-slate-500">
+                  {t(lang, 'home.quickModeDesc')}
+                </p>
+              </div>
+              <span className="hidden sm:inline-flex items-center gap-1 rounded-2xl bg-[#FF7A59] px-3.5 py-2 font-display text-sm font-extrabold text-white shadow-xs group-hover:translate-x-0.5 transition-transform">
+                <Play className="h-4 w-4 fill-white" aria-hidden="true" />
+              </span>
+              <ChevronRight
+                className="sm:hidden h-6 w-6 text-orange-400 transition-transform group-hover:translate-x-1"
+                aria-hidden="true"
+              />
+            </button>
 
-          {/* Card 2: Endless */}
-          <button
-            type="button"
-            onClick={() => handleChooseSession('endless')}
-            className="group flex items-center gap-4 rounded-3xl border-2 border-rose-200 border-b-[6px] border-b-rose-400 bg-white p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:bg-rose-50/70 active:translate-y-[3px] active:border-b-2 cursor-pointer"
-          >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#FF7A59] border-b-4 border-[#D95334] text-white shadow-sm">
-              <InfinityIcon className="h-7 w-7" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
-                  {t(lang, 'home.endlessMode')}
-                </span>
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-extrabold text-rose-600">
-                  <Heart className="h-3 w-3 fill-rose-500" aria-hidden="true" />
-                  ×3
-                </span>
-                {bestEndlessScore > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-extrabold text-amber-800">
-                    <Trophy className="w-3 h-3 text-amber-500" aria-hidden="true" />
-                    {t(lang, 'home.bestEndless', { count: bestEndlessScore })}
+            {/* 2-Column Bento Row: Endless & Study Lab */}
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              {/* Bento Card 2: Endless */}
+              <button
+                type="button"
+                onClick={() => handleChooseSession('endless')}
+                className="group flex flex-row sm:flex-col items-center sm:items-start justify-between gap-3.5 rounded-3xl border-2 border-violet-200 border-b-[6px] border-b-violet-400 bg-white p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:bg-violet-50/60 active:translate-y-[3px] active:border-b-2 cursor-pointer"
+              >
+                <div className="flex w-auto sm:w-full items-center justify-between gap-2">
+                  <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6366F1] border-b-4 border-[#4338CA] text-white shadow-sm">
+                    <InfinityIcon className="h-7 w-7" aria-hidden="true" />
+                  </div>
+                  <div className="hidden sm:flex flex-wrap items-center justify-end gap-1.5">
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-extrabold text-rose-600">
+                      <Heart className="h-3 w-3 fill-rose-500" aria-hidden="true" />
+                      ×3
+                    </span>
+                    {bestEndlessScore > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-extrabold text-amber-800">
+                        <Trophy className="w-3 h-3 text-amber-500" aria-hidden="true" />
+                        {t(lang, 'home.bestEndless', { count: bestEndlessScore })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 sm:w-full">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
+                      {t(lang, 'home.endlessMode')}
+                    </span>
+                    <span className="sm:hidden inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-extrabold text-rose-600">
+                      <Heart className="h-3 w-3 fill-rose-500" aria-hidden="true" />
+                      ×3
+                    </span>
+                    {bestEndlessScore > 0 && (
+                      <span className="sm:hidden inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-extrabold text-amber-800">
+                        <Trophy className="w-3 h-3 text-amber-500" aria-hidden="true" />
+                        {t(lang, 'home.bestEndless', { count: bestEndlessScore })}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-sm font-bold text-slate-500">
+                    {t(lang, 'home.endlessModeDesc')}
+                  </p>
+                </div>
+                <ChevronRight
+                  className="sm:hidden h-6 w-6 text-violet-400 transition-transform group-hover:translate-x-1"
+                  aria-hidden="true"
+                />
+              </button>
+
+              {/* Bento Card 3: Study Lab */}
+              <button
+                type="button"
+                onClick={() => handleChooseSession('practice')}
+                className="group flex flex-row sm:flex-col items-center sm:items-start justify-between gap-3.5 rounded-3xl border-2 border-teal-200 border-b-[6px] border-b-teal-400 bg-white p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:bg-teal-50/60 active:translate-y-[3px] active:border-b-2 cursor-pointer"
+              >
+                <div className="flex w-auto sm:w-full items-center justify-between gap-2">
+                  <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#10B981] border-b-4 border-[#047857] text-white shadow-sm">
+                    <GraduationCap className="h-7 w-7" aria-hidden="true" />
+                  </div>
+                  <span className="hidden sm:inline-flex items-center rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-extrabold text-teal-800">
+                    8 {t(lang, 'home.topics')}
                   </span>
-                )}
-              </div>
-              <p className="text-sm font-bold text-slate-500">
-                {t(lang, 'home.endlessModeDesc')}
-              </p>
+                </div>
+                <div className="min-w-0 flex-1 sm:w-full">
+                  <div className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
+                    {t(lang, 'home.practiceMode')}
+                  </div>
+                  <p className="mt-0.5 text-sm font-bold text-slate-500">
+                    {t(lang, 'home.practiceModeDesc')}
+                  </p>
+                </div>
+                <ChevronRight
+                  className="sm:hidden h-6 w-6 text-teal-400 transition-transform group-hover:translate-x-1"
+                  aria-hidden="true"
+                />
+              </button>
             </div>
-            <ChevronRight
-              className="h-6 w-6 text-rose-400 transition-transform group-hover:translate-x-1"
-              aria-hidden="true"
-            />
-          </button>
-
-          {/* Card 3: Study Lab */}
-          <button
-            type="button"
-            onClick={() => handleChooseSession('practice')}
-            className="group flex items-center gap-4 rounded-3xl border-2 border-emerald-200 border-b-[6px] border-b-emerald-400 bg-white p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:bg-emerald-50/70 active:translate-y-[3px] active:border-b-2 cursor-pointer"
-          >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#10B981] border-b-4 border-[#047857] text-white shadow-sm">
-              <GraduationCap className="h-7 w-7" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
-                {t(lang, 'home.practiceMode')}
-              </div>
-              <p className="text-sm font-bold text-slate-500">
-                {t(lang, 'home.practiceModeDesc')}
-              </p>
-            </div>
-            <ChevronRight
-              className="h-6 w-6 text-emerald-400 transition-transform group-hover:translate-x-1"
-              aria-hidden="true"
-            />
-          </button>
+          </div>
         </motion.section>
       ) : (
         /* STEP 2: Clean, focused setup panel for the chosen mode */

@@ -58,7 +58,11 @@ export function WordReviewList({
               <button
                 type="button"
                 aria-label={`${t(lang, 'game.listen')} ${entry.word}`}
-                onClick={() => speechEngine.speak(entry.word)}
+                onClick={() =>
+                  entry.audioUrl
+                    ? speechEngine.speak(entry.word, entry.audioUrl)
+                    : speechEngine.speak(entry.word)
+                }
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white px-3 py-2 text-xs font-extrabold border-2 border-sky-600 border-b-[4px] border-b-sky-700 bevel-25d cursor-pointer active:translate-y-[2px] active:border-b-2 transition-all"
               >
                 <Volume2 className="h-4 w-4" aria-hidden="true" />

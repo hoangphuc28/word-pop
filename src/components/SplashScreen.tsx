@@ -52,7 +52,7 @@ export function SplashScreen({
         transition={{ type: 'spring', stiffness: 320, damping: 24 }}
         className="relative z-10 flex w-full max-w-md flex-col items-center rounded-3xl border-2 border-white/90 bg-white/90 p-7 sm:p-9 text-center shadow-2xl backdrop-blur-md card-25d"
       >
-        <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-[#7DD3FC] to-[#38BDF8] border-b-[6px] border-[#0284C7] shadow-lg bevel-25d">
+        <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-[#FF8A65] via-[#F43F5E] to-[#8B5CF6] border-b-[6px] border-[#6D28D9] shadow-lg bevel-25d">
           <img
             src="/icon-192.svg"
             alt=""
@@ -63,12 +63,12 @@ export function SplashScreen({
 
         <h1 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-800">
           <span>Word</span>
-          <span className="bg-gradient-to-r from-[#0EA5E9] to-[#2563EB] bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-[#FF7A59] via-[#F43F5E] to-[#8B5CF6] bg-clip-text text-transparent">
             Pop
           </span>
         </h1>
-        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100/90 px-4 py-1 text-sm font-extrabold text-amber-800">
-          <Sparkles className="h-4 w-4 text-amber-500" aria-hidden="true" />
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-100/90 px-4 py-1 text-sm font-extrabold text-rose-800">
+          <Sparkles className="h-4 w-4 text-rose-500" aria-hidden="true" />
           {t(lang, 'splash.tagline')}
         </p>
 
@@ -83,10 +83,10 @@ export function SplashScreen({
             aria-valuenow={progress}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="h-4 w-full overflow-hidden rounded-full border-2 border-sky-200 bg-sky-100/80 p-0.5"
+            className="h-4 w-full overflow-hidden rounded-full border-2 border-rose-200 bg-rose-100/80 p-0.5"
           >
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-[#38BDF8] via-[#10B981] to-[#FBBF24]"
+              className="h-full rounded-full bg-gradient-to-r from-[#FF7A59] via-[#F43F5E] to-[#8B5CF6]"
               initial={{ width: '12%' }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
@@ -97,7 +97,7 @@ export function SplashScreen({
         {/* Big START button once loaded */}
         <div className="mt-7 w-full">
           <Button25D
-            color="mint"
+            color="coral"
             size="lg"
             fullWidth
             disabled={!ready}

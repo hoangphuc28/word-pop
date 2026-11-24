@@ -27,38 +27,46 @@ export function LandscapeBackdrop({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none ${posClass} z-0 overflow-hidden select-none bg-gradient-to-b from-[#8DD6FF] via-[#D4EEFF] to-[#FFF4D6]`}
+      className={`pointer-events-none ${posClass} z-0 overflow-hidden select-none bg-gradient-to-b from-[#C4B5FD] via-[#FBCFE8] to-[#FEF3C7]`}
     >
-      {/* Playful illustrated hills & clouds background */}
+      {/* Playful illustrated warm sunset hills & clouds background */}
       <svg
         className="h-full w-full"
         viewBox="0 0 1440 900"
         preserveAspectRatio="xMidYMid slice"
       >
-        {/* Soft sun glow */}
-        <circle cx="1220" cy="140" r="115" fill="#FDE047" opacity="0.72" />
-        <circle cx="1220" cy="140" r="74" fill="#F59E0B" opacity="0.88" />
+        {/* Warm coral-apricot sunset glow */}
+        <circle cx="1180" cy="165" r="135" fill="#FDE68A" opacity="0.68" />
+        <circle cx="1180" cy="165" r="82" fill="#FB7185" opacity="0.72" />
+        <circle cx="1180" cy="165" r="56" fill="#FF7A59" opacity="0.92" />
 
-        {/* Fluffy clouds */}
-        <g fill="#FFFFFF" opacity="0.92">
-          <ellipse cx="220" cy="170" rx="85" ry="34" />
-          <ellipse cx="265" cy="150" rx="60" ry="32" />
-          <ellipse cx="185" cy="158" rx="45" ry="26" />
+        {/* Soft cream sunset clouds */}
+        <g fill="#FFFDF9" opacity="0.88">
+          <ellipse cx="240" cy="175" rx="92" ry="34" />
+          <ellipse cx="290" cy="154" rx="64" ry="32" />
+          <ellipse cx="195" cy="164" rx="48" ry="26" />
 
-          <ellipse cx="1020" cy="240" rx="75" ry="28" />
-          <ellipse cx="1060" cy="222" rx="50" ry="26" />
+          <ellipse cx="960" cy="245" rx="80" ry="28" />
+          <ellipse cx="1005" cy="226" rx="54" ry="26" />
         </g>
 
-        {/* Rolling pastel hills */}
+        {/* Distant lavender-indigo ridge */}
         <path
-          d="M0 720 Q 360 610 720 710 T 1440 690 L 1440 900 L 0 900 Z"
-          fill="#6EE7B7"
-          opacity="0.82"
+          d="M0 685 Q 340 580 740 675 T 1440 655 L 1440 900 L 0 900 Z"
+          fill="#A78BFA"
+          opacity="0.45"
+        />
+
+        {/* Rolling warm sage-teal hills */}
+        <path
+          d="M0 735 Q 380 630 760 725 T 1440 705 L 1440 900 L 0 900 Z"
+          fill="#5EEAD4"
+          opacity="0.78"
         />
         <path
-          d="M0 780 Q 420 680 860 770 T 1440 750 L 1440 900 L 0 900 Z"
-          fill="#34D399"
-          opacity="0.9"
+          d="M0 790 Q 440 695 890 780 T 1440 760 L 1440 900 L 0 900 Z"
+          fill="#2DD4BF"
+          opacity="0.88"
         />
       </svg>
 
