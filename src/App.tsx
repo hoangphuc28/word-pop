@@ -212,18 +212,36 @@ export default function App({
   }, [updateProgress]);
 
   const handleToggleSound = useCallback(() => {
-    updateProgress((prev) => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        soundEnabled: !prev.settings.soundEnabled,
-      },
-    }));
+    updateProgress((prev) => {
+      const nextSound = !prev.settings.soundEnabled;
+      const currentVol = prev.settings.soundVolume ?? 0.85;
+      const nextVol = nextSound && currentVol === 0 ? 0.85 : currentVol;
+      soundEngine.setEnabled(nextSound);
+      speechEngine.setEnabled(nextSound);
+      if (nextVol !== currentVol) {
+        soundEngine.setSfxVolume(nextVol);
+        speechEngine.setVolume(nextVol);
+      }
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          soundEnabled: nextSound,
+          soundVolume: nextVol,
+        },
+      };
+    });
   }, [updateProgress]);
 
   const handleToggleMusic = useCallback(() => {
     updateProgress((prev) => {
       const nextMusic = !(prev.settings.musicEnabled ?? true);
+      const currentVol = prev.settings.musicVolume ?? 0.85;
+      const nextVol = nextMusic && currentVol === 0 ? 0.85 : currentVol;
+      soundEngine.setMusicEnabled(nextMusic);
+      if (nextVol !== currentVol) {
+        soundEngine.setMusicVolume(nextVol);
+      }
       if (nextMusic && !showSplash && screen === 'home') {
         soundEngine.setMusicTrack('groove');
         soundEngine.startBgm();
@@ -233,6 +251,7 @@ export default function App({
         settings: {
           ...prev.settings,
           musicEnabled: nextMusic,
+          musicVolume: nextVol,
         },
       };
     });

@@ -51,7 +51,7 @@ export function VictoryModal({
     return null;
   }
 
-  const displayStars = Math.max(1, Math.min(stars, 5));
+  const displayStars = Math.max(1, Math.min(stars, 3));
   const titleText = isSessionComplete
     ? t(lang, 'victory.sessionTitle')
     : t(lang, 'victory.title');

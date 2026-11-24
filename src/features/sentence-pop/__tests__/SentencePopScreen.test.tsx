@@ -91,6 +91,7 @@ describe('SentencePopScreen', () => {
       { correct: true, usedHint: false },
     );
     expect(props.onAwardStars).toHaveBeenCalledTimes(1);
+    expect(props.onAwardStars).toHaveBeenCalledWith(2);
 
     // Click Review -> closes modal, shows WordReviewList and full-sentence audio
     await user.click(screen.getByRole('button', { name: /Review/i }));
@@ -153,5 +154,39 @@ describe('SentencePopScreen', () => {
       expectedPuzzle.level,
       { correct: true, usedHint: true },
     );
+    expect(props.onAwardStars).toHaveBeenCalledWith(2);
+  });
+
+  it('awards 3★ flawless and 1★ after 2+ mistakes', async () => {
+    const user = userEvent.setup();
+    const config = createConfig({ inputMode: 'tray', level: 'A1' });
+    const expectedPuzzle = generateSentencePop({
+      level: config.level,
+      topics: config.topics,
+      seed: FIXED_SEED,
+    });
+    const targetWord = expectedPuzzle.vocab.word.toLowerCase();
+    const wrongWord = expectedPuzzle.choices.find((c) => c.toLowerCase() !== targetWord)!;
+
+    // Flawless -> 3★
+    const flawless = renderSentencePop({ config });
+    const choicesBox1 = screen.getByTestId('sentence-pop-choices');
+    await user.click(within(choicesBox1).getByRole('button', { name: targetWord }));
+    await user.click(screen.getByRole('button', { name: /Check/i }));
+    expect(screen.getByTestId('victory-modal')).toBeInTheDocument();
+    expect(flawless.props.onAwardStars).toHaveBeenCalledWith(3);
+    flawless.unmount();
+
+    // 2 mistakes -> 1★
+    const twoMistakes = renderSentencePop({ config });
+    const choicesBox2 = screen.getByTestId('sentence-pop-choices');
+    await user.click(within(choicesBox2).getByRole('button', { name: wrongWord }));
+    const checkBtn = screen.getByRole('button', { name: /Check/i });
+    await user.click(checkBtn);
+    await user.click(checkBtn);
+    await user.click(within(choicesBox2).getByRole('button', { name: targetWord }));
+    await user.click(checkBtn);
+    expect(screen.getByTestId('victory-modal')).toBeInTheDocument();
+    expect(twoMistakes.props.onAwardStars).toHaveBeenCalledWith(1);
   });
 });

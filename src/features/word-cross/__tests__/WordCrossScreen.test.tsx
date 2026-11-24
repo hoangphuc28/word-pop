@@ -94,6 +94,7 @@ describe('WordCrossScreen', () => {
       { correct: true, usedHint: false },
     );
     expect(props.onAwardStars).toHaveBeenCalledTimes(1);
+    expect(props.onAwardStars).toHaveBeenCalledWith(3);
 
     // Clicking Review closes modal and renders WordReviewList with IPA & Listen button
     await user.click(screen.getByRole('button', { name: /Review/i }));
@@ -235,5 +236,83 @@ describe('WordCrossScreen', () => {
     expect(checkBtn).toBeEnabled();
     await user.click(checkBtn);
     expect(screen.getByTestId('victory-modal')).toBeInTheDocument();
+  });
+
+  it('awards 2★ with 1 mistake and 1★ with 2+ mistakes', async () => {
+    const user = userEvent.setup();
+    const config = createConfig({ sessionMode: 'quick', inputMode: 'keyboard', level: 'A1' });
+    const expectedPuzzle = generateWordCross({
+      level: config.level,
+      topics: config.topics,
+      seed: FIXED_SEED,
+    });
+
+    // Helper to fill all blanks in Super Mode (with first blank optionally wrong)
+    const fillSuperBlanks = async (makeWrong: boolean) => {
+      for (let i = 0; i < expectedPuzzle.blankCellIds.length; i++) {
+        const cellId = expectedPuzzle.blankCellIds[i];
+        const sol = expectedPuzzle.cells[cellId].solution;
+        const ch = makeWrong && i === 0 ? (sol === 'Z' ? 'Q' : 'Z') : sol;
+        await user.click(screen.getByTestId(`cell-${cellId}`));
+        fireEvent.keyDown(window, { key: ch });
+      }
+    };
+
+    // Case 1: 1 mistake, no hint -> 2★
+    const firstRun = renderWordCross({ config });
+    await fillSuperBlanks(true);
+    await user.click(screen.getByRole('button', { name: /Check/i }));
+    expect(screen.queryByTestId('victory-modal')).not.toBeInTheDocument();
+
+    await fillSuperBlanks(false);
+    await user.click(screen.getByRole('button', { name: /Check/i }));
+    expect(screen.getByTestId('victory-modal')).toBeInTheDocument();
+    expect(firstRun.props.onAwardStars).toHaveBeenCalledWith(2);
+    firstRun.unmount();
+
+    // Case 2: 2 mistakes, no hint -> 1★
+    const secondRun = renderWordCross({ config });
+    await fillSuperBlanks(true);
+    const checkBtn = screen.getByRole('button', { name: /Check/i });
+    await user.click(checkBtn);
+    await user.click(checkBtn);
+    expect(screen.queryByTestId('victory-modal')).not.toBeInTheDocument();
+
+    await fillSuperBlanks(false);
+    await user.click(checkBtn);
+    expect(screen.getByTestId('victory-modal')).toBeInTheDocument();
+    expect(secondRun.props.onAwardStars).toHaveBeenCalledWith(1);
+  });
+
+  it('pointercancel during drag on a placed tile aborts cleanly without removing the tile', async () => {
+    const user = userEvent.setup();
+    const config = createConfig({ sessionMode: 'quick', inputMode: 'tray', level: 'A1' });
+    const expectedPuzzle = generateWordCross({
+      level: config.level,
+      topics: config.topics,
+      seed: FIXED_SEED,
+    });
+
+    renderWordCross({ config });
+    const tray = screen.getByTestId('word-cross-tray');
+    const firstBlankId = expectedPuzzle.blankCellIds[0];
+    const targetLetter = expectedPuzzle.cells[firstBlankId].solution;
+
+    // Place a tile into the first blank cell
+    const cellBtn = screen.getByTestId(`cell-${firstBlankId}`);
+    await user.click(cellBtn);
+    const matchingTrayBtn = within(tray)
+      .getAllByRole('button')
+      .find((btn) => btn.textContent?.trim() === targetLetter)!;
+    await user.click(matchingTrayBtn);
+    expect(cellBtn).toHaveTextContent(targetLetter);
+
+    // Start dragging the placed tile past the 6px threshold, then fire pointercancel
+    fireEvent.pointerDown(cellBtn, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 140, clientY: 140 });
+    fireEvent.pointerCancel(window, { pointerId: 1, clientX: 140, clientY: 140 });
+
+    // Tile must remain placed in the cell (not deleted)
+    expect(cellBtn).toHaveTextContent(targetLetter);
   });
 });

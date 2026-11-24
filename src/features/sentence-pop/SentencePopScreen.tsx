@@ -42,13 +42,6 @@ export interface SentencePopScreenProps {
 const SESSION_LENGTH = 5;
 const MAX_EXCLUDED_WORDS = 12;
 
-const LEVEL_STARS: Record<CefrLevel, number> = {
-  A1: 1,
-  A2: 2,
-  B1: 3,
-  B2C1: 4,
-};
-
 export function SentencePopScreen({
   config,
   lang,
@@ -77,6 +70,7 @@ export function SentencePopScreen({
 
   // Shared puzzle state
   const [usedHint, setUsedHint] = useState(false);
+  const [mistakes, setMistakes] = useState(0);
   const [isInvalid, setIsInvalid] = useState(false);
   const [shakeTick, setShakeTick] = useState(0);
   const [isSolved, setIsSolved] = useState(false);
@@ -107,6 +101,7 @@ export function SentencePopScreen({
     setHintedIndices(new Set());
     setCursorIndex(0);
     setUsedHint(false);
+    setMistakes(0);
     setIsInvalid(false);
     setIsSolved(false);
     setShowVictory(false);
@@ -244,9 +239,12 @@ export function SentencePopScreen({
 
     if (isCorrect) {
       const nextStreak = streak + 1;
-      const earnedStars = usedHint
-        ? 1
-        : Math.min(5, LEVEL_STARS[puzzle.level] + (isSuperMode ? 1 : 0));
+      const earnedStars =
+        !usedHint && mistakes === 0
+          ? 3
+          : (usedHint && mistakes === 0) || (!usedHint && mistakes === 1)
+            ? 2
+            : 1;
       const isLastPuzzle = puzzleIndex + 1 >= SESSION_LENGTH;
 
       setIsSolved(true);
@@ -270,6 +268,7 @@ export function SentencePopScreen({
       setIsInvalid(true);
       setShakeTick((prev) => prev + 1);
       setStreak(0);
+      setMistakes((prev) => prev + 1);
       soundEngine.playError();
       onRecordAttempt([puzzle.vocab.id], puzzle.level, {
         correct: false,
@@ -287,6 +286,7 @@ export function SentencePopScreen({
     puzzle,
     streak,
     usedHint,
+    mistakes,
     puzzleIndex,
     onRecordAttempt,
     onAwardStars,

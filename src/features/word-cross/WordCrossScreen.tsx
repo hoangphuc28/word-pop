@@ -75,13 +75,6 @@ const SESSION_LENGTH = 5;
 const DRAG_THRESHOLD_PX = 6;
 const MAX_EXCLUDED_WORDS = 12;
 
-const LEVEL_STARS: Record<CefrLevel, number> = {
-  A1: 1,
-  A2: 2,
-  B1: 3,
-  B2C1: 4,
-};
-
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -115,7 +108,7 @@ export function WordCrossScreen({
   const [activeEndlessSolved, setActiveEndlessSolved] = useState(0);
   const [excludeWordIds, setExcludeWordIds] = useState<string[]>([]);
   const [isGameOver, setIsGameOver] = useState(false);
-  const [initialBest] = useState(bestEndlessScore);
+  const [initialBest, setInitialBest] = useState(bestEndlessScore);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Board interaction state
@@ -125,6 +118,7 @@ export function WordCrossScreen({
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [activeEntryNumber, setActiveEntryNumber] = useState<number | null>(null);
   const [usedHint, setUsedHint] = useState(false);
+  const [mistakes, setMistakes] = useState(0);
   const [hintedCellIds, setHintedCellIds] = useState<Set<string>>(() => new Set());
   const [invalidCellIds, setInvalidCellIds] = useState<Set<string>>(() => new Set());
   const [shakeTick, setShakeTick] = useState(0);
@@ -263,6 +257,7 @@ export function WordCrossScreen({
     setSelectedTrayId(null);
     setSelectedCellId(null);
     setUsedHint(false);
+    setMistakes(0);
     setHintedCellIds(new Set());
     setInvalidCellIds(new Set());
     setIsSolved(false);
@@ -448,9 +443,12 @@ export function WordCrossScreen({
     const result = validateWordCross(puzzle, currentLetters);
     if (result.isValid) {
       const nextStreak = streak + 1;
-      const earnedStars = usedHint
-        ? 1
-        : Math.min(5, LEVEL_STARS[effectiveLevel] + (isSuperMode ? 1 : 0));
+      const earnedStars =
+        !usedHint && mistakes === 0
+          ? 3
+          : (usedHint && mistakes === 0) || (!usedHint && mistakes === 1)
+            ? 2
+            : 1;
       const isLastPuzzle = !isEndless && puzzleIndex + 1 >= sessionLength;
 
       setIsSolved(true);
@@ -481,6 +479,7 @@ export function WordCrossScreen({
       setInvalidCellIds(new Set(result.invalidCellIds));
       setShakeTick((prev) => prev + 1);
       setStreak(0);
+      setMistakes((prev) => prev + 1);
 
       const solvedSet = new Set(result.solvedWordIds);
       const failedIds = puzzle.entries
@@ -512,8 +511,8 @@ export function WordCrossScreen({
     currentLetters,
     streak,
     usedHint,
+    mistakes,
     effectiveLevel,
-    isSuperMode,
     isEndless,
     puzzleIndex,
     sessionLength,
@@ -687,7 +686,12 @@ export function WordCrossScreen({
       if (!tracker || ev.pointerId !== tracker.pointerId) return;
       cleanup();
 
-      if (!tracker.isDragging) return;
+      if (ev.type === 'pointercancel' || !tracker.isDragging) {
+        if (ev.type === 'pointercancel') {
+          suppressNextClickRef.current = false;
+        }
+        return;
+      }
       setDragVisual(null);
 
       const els =
@@ -865,6 +869,7 @@ export function WordCrossScreen({
   };
 
   const handleRetryEndless = () => {
+    setInitialBest((prev) => Math.max(prev, bestEndlessScore, endlessSolved));
     setHearts(3);
     setEndlessSolved(0);
     setActiveEndlessSolved(0);
