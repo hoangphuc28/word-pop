@@ -59,7 +59,7 @@ describe('HomeHub', () => {
     expect(props.onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('starts WordCross practice at chosen CEFR level with all 8 topics', async () => {
+  it('starts Pop Match practice at chosen CEFR level with all 8 topics', async () => {
     const user = userEvent.setup();
     const { props } = renderHomeHub();
 
@@ -67,7 +67,7 @@ describe('HomeHub', () => {
     await user.click(screen.getByRole('button', { name: /^Practice$/i }));
 
     expect(props.onStartPlay).toHaveBeenCalledWith({
-      mode: 'word-cross',
+      mode: 'pop-match',
       sessionMode: 'practice',
       inputMode: 'tray',
       level: 'C1',
@@ -85,7 +85,7 @@ describe('HomeHub', () => {
     await user.click(screen.getByRole('button', { name: /^Practice$/i }));
 
     expect(props.onStartPlay).toHaveBeenCalledWith({
-      mode: 'word-cross',
+      mode: 'pop-match',
       sessionMode: 'practice',
       inputMode: 'keyboard',
       level: 'A1',
@@ -97,9 +97,9 @@ describe('HomeHub', () => {
     const user = userEvent.setup();
     const { props } = renderHomeHub();
 
-    const wordCrossBtn = screen.getByRole('button', { name: /Word Cross/i });
+    const popMatchBtn = screen.getByRole('button', { name: /Pop Match/i });
     const sentencePopBtn = screen.getByRole('button', { name: /Sentence Pop/i });
-    expect(wordCrossBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(popMatchBtn).toHaveAttribute('aria-pressed', 'true');
     expect(sentencePopBtn).toHaveAttribute('aria-pressed', 'false');
 
     const topicButtons = [
@@ -195,7 +195,7 @@ describe('HomeHub', () => {
     await user.click(screen.getByRole('button', { name: /^Practice$/i }));
     expect(props.onStartPlay).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: 'word-cross',
+        mode: 'pop-match',
         sessionMode: 'practice',
         deckId: 'deck-custom-1',
         deckName: 'My IELTS Verbs',
@@ -208,7 +208,7 @@ describe('HomeHub', () => {
     renderHomeHub({ lang: 'vi', dailyStreak: 5, playedToday: true });
 
     expect(screen.getByTestId('daily-streak-banner')).toHaveTextContent('Chuỗi 5 ngày!');
-    expect(screen.getByText('Ô Chữ Từ Vựng')).toBeInTheDocument();
+    expect(screen.getByText('Nổ Cặp Từ')).toBeInTheDocument();
     expect(screen.getByText('Điền Câu Chuẩn')).toBeInTheDocument();
   });
 });

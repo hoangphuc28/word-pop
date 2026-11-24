@@ -12,7 +12,7 @@ export type VocabTopic =
 
 export type PartOfSpeech = 'n.' | 'v.' | 'adj.' | 'adv.';
 
-export type GameMode = 'word-cross' | 'sentence-pop';
+export type GameMode = 'pop-match' | 'sentence-pop' | 'word-cross';
 
 export type SessionMode = 'quick' | 'endless' | 'practice';
 

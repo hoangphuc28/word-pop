@@ -98,7 +98,7 @@ describe('App integration', () => {
     expect(within(stage).getByTestId('guide-modal')).toBeInTheDocument();
   });
 
-  it('starts WordCross practice, switches BGM to chill study mode, and returns to Home on Back', async () => {
+  it('starts Pop Match practice, switches BGM to chill study mode, and returns to Home on Back', async () => {
     const user = userEvent.setup();
     const startBgmSpy = vi.spyOn(soundEngine, 'startBgm').mockImplementation(() => {});
     const modeSpy = vi.spyOn(soundEngine, 'setBgmMode');
@@ -110,18 +110,18 @@ describe('App integration', () => {
     expect(startBgmSpy).toHaveBeenCalled();
     expect(modeSpy).toHaveBeenCalledWith('home');
 
-    // Start WordCross directly from Practice HomeHub
+    // Start Pop Match directly from Practice HomeHub
     await user.click(screen.getByRole('button', { name: /^Luyện Tập$/i }));
 
-    // WordCross screen is rendered and BGM switched to chill study mode
+    // Pop Match screen is rendered and BGM switched to chill study mode
     expect(screen.queryByTestId('daily-streak-banner')).not.toBeInTheDocument();
-    expect(screen.getByTestId('word-cross-clues')).toBeInTheDocument();
+    expect(screen.getByTestId('pop-match-board')).toBeInTheDocument();
     expect(modeSpy).toHaveBeenCalledWith('study');
 
     // Click Back to return to Home and switch BGM back to home mode
     await user.click(screen.getByRole('button', { name: /Quay Lại/i }));
 
-    expect(screen.queryByTestId('word-cross-clues')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('pop-match-board')).not.toBeInTheDocument();
     expect(screen.getByTestId('daily-streak-banner')).toBeInTheDocument();
     expect(modeSpy).toHaveBeenLastCalledWith('home');
   });

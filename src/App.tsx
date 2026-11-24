@@ -26,6 +26,7 @@ import {
 } from './engine/types';
 import { DecksScreen } from './features/decks/DecksScreen';
 import { HomeHub } from './features/home/HomeHub';
+import { PopMatchScreen } from './features/pop-match/PopMatchScreen';
 import { SentencePopScreen } from './features/sentence-pop/SentencePopScreen';
 import { WordCrossScreen } from './features/word-cross/WordCrossScreen';
 import { getPlayableDecks } from './storage/deckStore';
@@ -38,7 +39,7 @@ import {
   saveProgress,
 } from './storage/progressStore';
 
-type Screen = 'home' | 'decks' | 'play-word-cross' | 'play-sentence-pop';
+type Screen = 'home' | 'decks' | 'play-pop-match' | 'play-word-cross' | 'play-sentence-pop';
 
 export interface AppProps {
   /** Optional prop used in tests to skip the initial splash screen */
@@ -110,7 +111,9 @@ export default function App({
       return;
     }
     const isPlaying =
-      screen === 'play-word-cross' || screen === 'play-sentence-pop';
+      screen === 'play-pop-match' ||
+      screen === 'play-word-cross' ||
+      screen === 'play-sentence-pop';
     soundEngine.setBgmMode(isPlaying ? 'study' : 'home');
     if (musicEnabled) {
       soundEngine.startBgm();
@@ -281,9 +284,13 @@ export default function App({
 
   const handleStartPlay = useCallback((config: PlayConfig) => {
     setActiveConfig(config);
-    setScreen(
-      config.mode === 'sentence-pop' ? 'play-sentence-pop' : 'play-word-cross',
-    );
+    if (config.mode === 'sentence-pop') {
+      setScreen('play-sentence-pop');
+    } else if (config.mode === 'word-cross') {
+      setScreen('play-word-cross');
+    } else {
+      setScreen('play-pop-match');
+    }
   }, []);
 
   const handleBackToHome = useCallback(() => {
@@ -295,7 +302,7 @@ export default function App({
 
   const handlePlayDeck = useCallback((deck: WordDeck) => {
     setActiveConfig({
-      mode: 'word-cross',
+      mode: 'pop-match',
       sessionMode: 'practice',
       inputMode: 'tray',
       level: deck.level,
@@ -304,7 +311,7 @@ export default function App({
       deckName: deck.name,
       customWords: deck.words,
     });
-    setScreen('play-word-cross');
+    setScreen('play-pop-match');
   }, []);
 
   const handleExpandVocab = useCallback(async () => {
@@ -517,6 +524,17 @@ export default function App({
                 onExpandVocab={() => void handleExpandVocab()}
                 onPlayDeck={handlePlayDeck}
                 onDecksChanged={() => setPlayableDecks(getPlayableDecks())}
+                onBack={handleBackToHome}
+              />
+            )}
+
+            {screen === 'play-pop-match' && activeConfig && (
+              <PopMatchScreen
+                config={activeConfig}
+                lang={lang}
+                prioritizedWordKeys={prioritizedWordKeys}
+                onRecordAttempt={handleRecordAttempt}
+                onAwardStars={handleAwardStars}
                 onBack={handleBackToHome}
               />
             )}

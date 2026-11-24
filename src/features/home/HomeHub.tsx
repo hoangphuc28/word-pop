@@ -7,7 +7,6 @@ import {
   Flame,
   FolderHeart,
   Globe2,
-  Grid3X3,
   Home,
   Leaf,
   type LucideIcon,
@@ -94,7 +93,7 @@ export function HomeHub({
   onOpenSettings,
   onStartPlay,
 }: HomeHubProps): React.JSX.Element {
-  const [mode, setMode] = useState<GameMode>('word-cross');
+  const [mode, setMode] = useState<GameMode>('pop-match');
   const [superMode, setSuperMode] = useState(false);
   const [wordSource, setWordSource] = useState<'cefr' | 'deck'>('cefr');
   const [level, setLevel] = useState<CefrLevel>('A1');
@@ -304,17 +303,17 @@ export function HomeHub({
             <div className="grid flex-1 min-w-[220px] grid-cols-2 gap-1.5 rounded-2xl bg-amber-100/70 border border-amber-200/80 p-1 shadow-inner">
               <button
                 type="button"
-                aria-pressed={mode === 'word-cross'}
-                onClick={() => handleSelectMode('word-cross')}
+                aria-pressed={mode === 'pop-match'}
+                onClick={() => handleSelectMode('pop-match')}
                 className={[
                   'flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 font-display text-sm font-extrabold transition-all cursor-pointer',
-                  mode === 'word-cross'
+                  mode === 'pop-match'
                     ? 'bg-white text-rose-700 shadow-sm border-b-2 border-rose-300'
                     : 'text-slate-700 hover:bg-white/60',
                 ].join(' ')}
               >
-                <Grid3X3 className="h-4 w-4" aria-hidden="true" />
-                <span>{t(lang, 'home.wordCross')}</span>
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                <span>{t(lang, 'home.popMatch')}</span>
               </button>
 
               <button

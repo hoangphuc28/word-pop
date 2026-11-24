@@ -406,6 +406,31 @@ class SunsetSoundEngine {
     });
   }
 
+  public playCombo(combo: number): void {
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    // Rising warm sunset pentatonic chime as combo climbs (x1 -> x8+)
+    const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+    const idx = Math.max(0, Math.min(pentatonic.length - 1, combo - 1));
+    const root = pentatonic[idx];
+    this.playWarmTone({
+      freq: root,
+      duration: 0.16,
+      gain: 0.15 * this.sfxVolume,
+      type: 'triangle',
+      attack: 0.006,
+      cutoff: 2400,
+    });
+    this.playWarmTone({
+      freq: root * 1.25,
+      duration: 0.22,
+      gain: 0.11 * this.sfxVolume,
+      type: 'sine',
+      attack: 0.008,
+      cutoff: 2600,
+      delay: 0.045,
+    });
+  }
+
   public playSuccess(_streak?: number): void {
     if (!this.enabled || this.sfxVolume <= 0.001) return;
     [523.25, 659.25, 783.99].forEach((freq, i) => {
