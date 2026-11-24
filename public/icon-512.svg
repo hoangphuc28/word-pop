@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bgSky512" x1="64" y1="32" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7DD3FC"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="gloss512" x1="256" y1="42" x2="256" y2="228" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 2.5D Base Bevel Shadow -->
+  <rect x="32" y="54" width="448" height="426" rx="112" fill="#0284C7"/>
+  <!-- 2.5D Main Sky-Blue Tile -->
+  <rect x="32" y="28" width="448" height="420" rx="112" fill="url(#bgSky512)" stroke="#0EA5E9" stroke-width="10"/>
+  <!-- Glossy Highlight -->
+  <rect x="64" y="48" width="384" height="164" rx="80" fill="url(#gloss512)"/>
+
+  <!-- 2.5D Extruded W Letterform -->
+  <path d="M122 176L178 342L256 214L334 342L390 176" stroke="#0369A1" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M122 154L178 320L256 192L334 320L390 154" stroke="#FFFFFF" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Cheerful Yellow 2.5D Sparkle Badge (top-right) -->
+  <circle cx="389" cy="108" r="42" fill="#D97706"/>
+  <circle cx="389" cy="96" r="42" fill="#FBBF24" stroke="#FEF3C7" stroke-width="7"/>
+  <path d="M389 72L396 89L413 96L396 103L389 120L382 103L365 96L382 89L389 72Z" fill="#FFFFFF"/>
+
+  <!-- Coral & Mint 2.5D Accent Dots -->
+  <circle cx="118" cy="98" r="26" fill="#EA580C"/>
+  <circle cx="118" cy="88" r="26" fill="#FF7A59"/>
+  <circle cx="256" cy="384" r="18" fill="#059669"/>
+  <circle cx="256" cy="376" r="18" fill="#34D399"/>
+</svg>
