@@ -7,7 +7,7 @@
   "splash.start": "BẮT ĐẦU",
   "home.sessionMode": "Chế Độ Chơi",
   "home.quickMode": "Chơi Nhanh",
-  "home.quickModeDesc": "1 màn · Tự chọn chủ đề",
+  "home.quickModeDesc": "1 màn · Chủ đề ngẫu nhiên",
   "home.endlessMode": "Vô Hạn",
   "home.endlessModeDesc": "3 tim · Tăng cấp mỗi 5 màn",
   "home.bestEndless": "Kỷ lục: {count}",
