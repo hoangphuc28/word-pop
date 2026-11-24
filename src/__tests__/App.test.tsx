@@ -98,60 +98,56 @@ describe('App integration', () => {
     expect(within(stage).getByTestId('guide-modal')).toBeInTheDocument();
   });
 
-  it('starts Quick Play WordCross, pauses BGM during gameplay, and returns to Home resuming BGM on Back', async () => {
+  it('starts WordCross practice, switches BGM to chill study mode, and returns to Home on Back', async () => {
     const user = userEvent.setup();
     const startBgmSpy = vi.spyOn(soundEngine, 'startBgm').mockImplementation(() => {});
-    const stopBgmSpy = vi.spyOn(soundEngine, 'stopBgm').mockImplementation(() => {});
+    const modeSpy = vi.spyOn(soundEngine, 'setBgmMode');
 
     render(<App skipSplash={true} />);
 
-    // Home is visible and BGM started
+    // Home is visible and BGM started in home mode
     expect(screen.getByTestId('daily-streak-banner')).toBeInTheDocument();
     expect(startBgmSpy).toHaveBeenCalled();
+    expect(modeSpy).toHaveBeenCalledWith('home');
 
-    // Enter Quick Play ("Chơi Nhanh" in default VI)
-    await user.click(screen.getByRole('button', { name: /Chơi Nhanh/i }));
+    // Start WordCross directly from Practice HomeHub
     await user.click(screen.getByRole('button', { name: /Chơi Ngay!/i }));
 
-    // WordCross screen is rendered and Home is hidden
+    // WordCross screen is rendered and BGM switched to chill study mode
     expect(screen.queryByTestId('daily-streak-banner')).not.toBeInTheDocument();
     expect(screen.getByTestId('word-cross-clues')).toBeInTheDocument();
-    expect(stopBgmSpy).toHaveBeenCalled();
+    expect(modeSpy).toHaveBeenCalledWith('study');
 
-    // Click Back to return to Home and resume BGM
-    startBgmSpy.mockClear();
+    // Click Back to return to Home and switch BGM back to home mode
     await user.click(screen.getByRole('button', { name: /Quay Lại/i }));
 
     expect(screen.queryByTestId('word-cross-clues')).not.toBeInTheDocument();
     expect(screen.getByTestId('daily-streak-banner')).toBeInTheDocument();
-    expect(startBgmSpy).toHaveBeenCalled();
+    expect(modeSpy).toHaveBeenLastCalledWith('home');
   });
 
-  it('starts Study Lab Sentence Pop, pauses BGM during gameplay, and returns to Home on Back', async () => {
+  it('starts Sentence Pop practice and opens Word Decks library cleanly', async () => {
     const user = userEvent.setup();
-    const startBgmSpy = vi.spyOn(soundEngine, 'startBgm').mockImplementation(() => {});
-    const stopBgmSpy = vi.spyOn(soundEngine, 'stopBgm').mockImplementation(() => {});
+    vi.spyOn(soundEngine, 'startBgm').mockImplementation(() => {});
 
     render(<App skipSplash={true} />);
 
-    // Enter Study Lab ("Luyện Tập" in default VI)
-    await user.click(screen.getByRole('button', { name: /Luyện Tập/i }));
-    // Switch game mode to Sentence Pop ("Điền Câu Chuẩn")
+    // Open Word Decks library ("Bộ Từ Vựng")
+    await user.click(screen.getByTestId('open-decks-btn'));
+    expect(screen.getByText('Thư Viện Bộ Từ')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Quay Lại/i }));
+
+    // Switch game mode to Sentence Pop ("Điền Câu Chuẩn") and Play
     await user.click(screen.getByRole('button', { name: /Điền Câu Chuẩn/i }));
     await user.click(screen.getByRole('button', { name: /Chơi Ngay!/i }));
 
-    // Sentence Pop screen is rendered and Home is hidden
+    // Sentence Pop screen is rendered
     expect(screen.queryByTestId('daily-streak-banner')).not.toBeInTheDocument();
     expect(screen.getByTestId('sentence-slot')).toBeInTheDocument();
     expect(screen.getByTestId('sentence-pop-choices')).toBeInTheDocument();
-    expect(stopBgmSpy).toHaveBeenCalled();
 
-    // Click Back to return to Home and resume BGM
-    startBgmSpy.mockClear();
+    // Return to Home
     await user.click(screen.getByRole('button', { name: /Quay Lại/i }));
-
-    expect(screen.queryByTestId('sentence-slot')).not.toBeInTheDocument();
     expect(screen.getByTestId('daily-streak-banner')).toBeInTheDocument();
-    expect(startBgmSpy).toHaveBeenCalled();
   });
 });

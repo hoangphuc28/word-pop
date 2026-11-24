@@ -30,7 +30,8 @@ const LEVEL_META: Record<
   A1: { barClass: 'bg-[#10B981]', badgeClass: 'bg-emerald-100 text-emerald-700' },
   A2: { barClass: 'bg-[#38BDF8]', badgeClass: 'bg-sky-100 text-sky-700' },
   B1: { barClass: 'bg-[#FF7A59]', badgeClass: 'bg-orange-100 text-orange-700' },
-  B2C1: { barClass: 'bg-[#8B5CF6]', badgeClass: 'bg-violet-100 text-violet-700' },
+  B2: { barClass: 'bg-[#8B5CF6]', badgeClass: 'bg-violet-100 text-violet-700' },
+  C1: { barClass: 'bg-[#F43F5E]', badgeClass: 'bg-rose-100 text-rose-700' },
 };
 
 export function StatsModal({

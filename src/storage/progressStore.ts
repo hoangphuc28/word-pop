@@ -79,6 +79,18 @@ function sanitizeStats(raw: unknown): PlayerStats {
       };
     }
   }
+  // Migrate legacy B2C1 stats cleanly into B2 if B2 is empty
+  const legacyB2C1 = rawByLevel['B2C1'];
+  if (
+    isPlainRecord(legacyB2C1) &&
+    byLevel.B2.attempts === 0 &&
+    byLevel.B2.correct === 0
+  ) {
+    byLevel.B2 = {
+      attempts: sanitizeNonNegInt(legacyB2C1.attempts),
+      correct: sanitizeNonNegInt(legacyB2C1.correct),
+    };
+  }
 
   return {
     puzzlesSolved: sanitizeNonNegInt(raw.puzzlesSolved),
@@ -104,7 +116,8 @@ export function createDefaultStats(): PlayerStats {
       A1: { attempts: 0, correct: 0 },
       A2: { attempts: 0, correct: 0 },
       B1: { attempts: 0, correct: 0 },
-      B2C1: { attempts: 0, correct: 0 },
+      B2: { attempts: 0, correct: 0 },
+      C1: { attempts: 0, correct: 0 },
     },
   };
 }

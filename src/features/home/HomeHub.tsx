@@ -1,19 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   BookOpen,
   Briefcase,
-  ChevronRight,
   CloudDownload,
   Cpu,
   Flame,
+  FolderHeart,
   Globe2,
-  GraduationCap,
   Grid3X3,
-  Heart,
   Home,
-  Infinity as InfinityIcon,
   Leaf,
   Loader2,
   type LucideIcon,
@@ -24,9 +20,7 @@ import {
   Settings,
   Smile,
   Sparkles,
-  Trophy,
   Utensils,
-  Zap,
 } from 'lucide-react';
 import { soundEngine } from '../../audio/soundEngine';
 import { Button25D, type Button25DColor } from '../../components/Button25D';
@@ -38,8 +32,8 @@ import {
   type CefrLevel,
   type GameMode,
   type PlayConfig,
-  type SessionMode,
   type VocabTopic,
+  type WordDeck,
 } from '../../engine/types';
 import { type Lang, t } from '../../i18n';
 
@@ -47,12 +41,13 @@ export interface HomeHubProps {
   lang: Lang;
   dailyStreak?: number;
   playedToday?: boolean;
-  bestEndlessScore?: number;
   isFullscreen?: boolean;
   vocabTotalCount?: number;
   isExpandingVocab?: boolean;
   expandVocabNotice?: string | null;
+  playableDecks?: WordDeck[];
   onExpandVocab?: () => void;
+  onOpenDecks?: () => void;
   onToggleFullscreen?: () => void;
   onOpenSettings?: () => void;
   onStartPlay: (config: PlayConfig) => void;
@@ -75,45 +70,57 @@ const TOPIC_META: Record<
   culture: { color: 'coral', Icon: Globe2 },
 };
 
-const LEVEL_STARS: Record<CefrLevel, number> = {
-  A1: 1,
-  A2: 2,
-  B1: 3,
-  B2C1: 4,
+const LEVEL_META: Record<
+  CefrLevel,
+  {
+    stars: number;
+    labelKey: 'levels.A1' | 'levels.A2' | 'levels.B1' | 'levels.B2' | 'levels.C1';
+    descKey:
+      | 'levels.A1Desc'
+      | 'levels.A2Desc'
+      | 'levels.B1Desc'
+      | 'levels.B2Desc'
+      | 'levels.C1Desc';
+    activeColor: Button25DColor;
+  }
+> = {
+  A1: { stars: 1, labelKey: 'levels.A1', descKey: 'levels.A1Desc', activeColor: 'sunny' },
+  A2: { stars: 2, labelKey: 'levels.A2', descKey: 'levels.A2Desc', activeColor: 'sunny' },
+  B1: { stars: 3, labelKey: 'levels.B1', descKey: 'levels.B1Desc', activeColor: 'coral' },
+  B2: { stars: 4, labelKey: 'levels.B2', descKey: 'levels.B2Desc', activeColor: 'lavender' },
+  C1: { stars: 5, labelKey: 'levels.C1', descKey: 'levels.C1Desc', activeColor: 'lavender' },
 };
 
 export function HomeHub({
   lang,
   dailyStreak = 0,
   playedToday = false,
-  bestEndlessScore = 0,
   isFullscreen = false,
-  vocabTotalCount = 384,
+  vocabTotalCount = 480,
   isExpandingVocab = false,
   expandVocabNotice = null,
+  playableDecks = [],
   onExpandVocab,
+  onOpenDecks,
   onToggleFullscreen,
   onOpenSettings,
   onStartPlay,
 }: HomeHubProps): React.JSX.Element {
-  const [selectedSession, setSelectedSession] = useState<SessionMode | null>(null);
-  const [superMode, setSuperMode] = useState(false);
   const [mode, setMode] = useState<GameMode>('word-cross');
+  const [superMode, setSuperMode] = useState(false);
+  const [wordSource, setWordSource] = useState<'cefr' | 'deck'>('cefr');
   const [level, setLevel] = useState<CefrLevel>('A1');
-  const [topics, setTopics] = useState<VocabTopic[]>(['daily']);
+  const [topics, setTopics] = useState<VocabTopic[]>([...ALL_TOPICS]);
+  const [selectedDeckId, setSelectedDeckId] = useState<string | null>(
+    () => playableDecks[0]?.id ?? null
+  );
 
-  const isPractice = selectedSession === 'practice';
-  const effectiveMode: GameMode = isPractice ? mode : 'word-cross';
+  const activeDeck =
+    playableDecks.find((d) => d.id === selectedDeckId) ?? playableDecks[0] ?? null;
+
   const isMixActive = topics.length >= 2;
-  const canPlay = !isPractice || topics.length > 0;
-
-  function handleChooseSession(nextSession: SessionMode): void {
-    soundEngine.playPop();
-    setSelectedSession(nextSession);
-    if (nextSession !== 'practice') {
-      setMode('word-cross');
-    }
-  }
+  const canPlay =
+    wordSource === 'cefr' ? topics.length > 0 : activeDeck !== null && activeDeck.words.length >= 2;
 
   function handleSelectMode(nextMode: GameMode): void {
     soundEngine.playPop();
@@ -127,12 +134,9 @@ export function HomeHub({
 
   function handleToggleTopic(topic: VocabTopic): void {
     soundEngine.playPop();
-    setTopics((prev) => {
-      if (prev.includes(topic)) {
-        return prev.filter((item) => item !== topic);
-      }
-      return [...prev, topic];
-    });
+    setTopics((prev) =>
+      prev.includes(topic) ? prev.filter((item) => item !== topic) : [...prev, topic]
+    );
   }
 
   function handleSelectAllTopics(): void {
@@ -141,23 +145,35 @@ export function HomeHub({
   }
 
   function handleStartPlay(): void {
-    if (!canPlay || !selectedSession) {
-      return;
-    }
+    if (!canPlay) return;
     soundEngine.playPop();
 
+    if (wordSource === 'deck' && activeDeck) {
+      onStartPlay({
+        mode,
+        sessionMode: 'practice',
+        inputMode: superMode ? 'keyboard' : 'tray',
+        level: activeDeck.level,
+        topics: [...ALL_TOPICS],
+        deckId: activeDeck.id,
+        deckName: activeDeck.name,
+        customWords: activeDeck.words,
+      });
+      return;
+    }
+
     onStartPlay({
-      mode: effectiveMode,
-      sessionMode: selectedSession,
+      mode,
+      sessionMode: 'practice',
       inputMode: superMode ? 'keyboard' : 'tray',
       level,
-      topics: isPractice ? [...topics] : [...ALL_TOPICS],
+      topics: [...topics],
     });
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 lg:px-10 py-5 sm:py-7 lg:py-8 flex flex-col gap-5 lg:gap-6">
-      {/* Minimal Header — chunky warm WordPop logo + 2 clean utility buttons */}
+    <div className="w-full max-w-4xl mx-auto px-4 sm:px-8 lg:px-10 py-5 sm:py-6 flex flex-col gap-4 lg:gap-5">
+      {/* Header — Sunset WordPop Logo + Word Decks + Fullscreen + Settings */}
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex h-13 w-13 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF8A65] via-[#F43F5E] to-[#8B5CF6] border-b-[5px] border-[#6D28D9] shadow-sm">
@@ -177,6 +193,22 @@ export function HomeHub({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onOpenDecks && (
+            <Button25D
+              color="lavender"
+              size="sm"
+              data-testid="open-decks-btn"
+              onClick={() => {
+                soundEngine.playPop();
+                onOpenDecks();
+              }}
+              className="px-3 py-2.5"
+            >
+              <FolderHeart className="w-4 h-4" aria-hidden="true" />
+              <span className="hidden sm:inline">{t(lang, 'home.manageDecks')}</span>
+            </Button25D>
+          )}
+
           {onToggleFullscreen && (
             <Button25D
               color="white"
@@ -218,122 +250,148 @@ export function HomeHub({
         </div>
       </header>
 
-      {selectedSession === null ? (
-        /* STEP 1: Super clean 3-mode menu */
-        <motion.section
-          key="mode-menu"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.16 }}
-          className={`flex flex-col gap-4 ${isFullscreen ? 'pt-6 sm:pt-1' : 'pt-1'}`}
-        >
-          {/* Top Status Strip: Daily Streak + Live Vocabulary Bank */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)]">
-            {/* Daily Streak Hero Banner */}
-            <div
-              data-testid="daily-streak-banner"
-              className="flex items-center justify-between gap-3 rounded-3xl border-2 border-amber-200 border-b-[5px] border-b-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/90 to-rose-50/80 px-4 py-3.5 shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={[
-                    'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-b-4 shadow-sm',
-                    playedToday
-                      ? 'bg-gradient-to-br from-[#FBBF24] to-[#FF7A59] border-[#EA580C] text-white'
-                      : 'bg-white border-amber-200 text-amber-400',
-                  ].join(' ')}
-                >
-                  <Flame
-                    className={`h-6 w-6 ${playedToday ? 'fill-white' : 'fill-amber-200'}`}
-                    aria-hidden="true"
-                  />
-                </div>
-                <div>
-                  <div className="font-display text-base sm:text-lg font-extrabold text-slate-800 leading-tight">
-                    {dailyStreak > 0
-                      ? t(lang, 'home.dailyStreakCount', { count: dailyStreak })
-                      : t(lang, 'home.dailyStreakZero')}
-                  </div>
-                  <p className="text-xs font-bold text-amber-800/80">
-                    {playedToday
-                      ? t(lang, 'home.dailyStreakActive')
-                      : t(lang, 'home.dailyStreakPrompt')}
-                  </p>
-                </div>
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.16 }}
+        className="flex flex-col gap-4"
+      >
+        {/* Top Status Strip: Daily Streak + Live Vocabulary Bank */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)]">
+          {/* Daily Streak Banner */}
+          <div
+            data-testid="daily-streak-banner"
+            className="flex items-center justify-between gap-3 rounded-3xl border-2 border-amber-200 border-b-[5px] border-b-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/90 to-rose-50/80 px-4 py-3.5 shadow-sm"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={[
+                  'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-b-4 shadow-sm',
+                  playedToday
+                    ? 'bg-gradient-to-br from-[#FBBF24] to-[#FF7A59] border-[#EA580C] text-white'
+                    : 'bg-white border-amber-200 text-amber-400',
+                ].join(' ')}
+              >
+                <Flame
+                  className={`h-6 w-6 ${playedToday ? 'fill-white' : 'fill-amber-200'}`}
+                  aria-hidden="true"
+                />
               </div>
-
-              {/* 7-day flame dots */}
-              <div className="hidden sm:flex items-center gap-1" aria-hidden="true">
-                {Array.from({ length: 7 }).map((_, idx) => {
-                  const filledCount = Math.min(7, dailyStreak);
-                  const lit = idx < filledCount;
-                  return (
-                    <span
-                      key={idx}
-                      className={[
-                        'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all',
-                        lit
-                          ? 'bg-gradient-to-b from-amber-400 to-orange-500 border-orange-500 text-white shadow-xs'
-                          : 'bg-white/80 border-amber-200 text-amber-200',
-                      ].join(' ')}
-                    >
-                      <Flame className={`h-3 w-3 ${lit ? 'fill-white' : ''}`} />
-                    </span>
-                  );
-                })}
+              <div>
+                <div className="font-display text-base sm:text-lg font-extrabold text-slate-800 leading-tight">
+                  {dailyStreak > 0
+                    ? t(lang, 'home.dailyStreakCount', { count: dailyStreak })
+                    : t(lang, 'home.dailyStreakZero')}
+                </div>
+                <p className="text-xs font-bold text-amber-800/80">
+                  {playedToday
+                    ? t(lang, 'home.dailyStreakActive')
+                    : t(lang, 'home.dailyStreakPrompt')}
+                </p>
               </div>
             </div>
 
-            {/* Live Vocabulary Bank Card */}
-            <div
-              data-testid="vocab-bank-card"
-              className="flex items-center justify-between gap-2.5 rounded-3xl border-2 border-violet-200 border-b-[5px] border-b-violet-300 bg-gradient-to-r from-violet-50/90 via-fuchsia-50/70 to-white px-4 py-3.5 shadow-sm"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 font-display text-base sm:text-lg font-extrabold text-violet-950 leading-tight">
-                  <BookOpen className="h-4.5 w-4.5 shrink-0 text-violet-600" aria-hidden="true" />
-                  <span className="truncate">
-                    {t(lang, 'home.vocabBank', { count: vocabTotalCount })}
+            <div className="hidden sm:flex items-center gap-1" aria-hidden="true">
+              {Array.from({ length: 7 }).map((_, idx) => {
+                const lit = idx < Math.min(7, dailyStreak);
+                return (
+                  <span
+                    key={idx}
+                    className={[
+                      'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all',
+                      lit
+                        ? 'bg-gradient-to-b from-amber-400 to-orange-500 border-orange-500 text-white shadow-xs'
+                        : 'bg-white/80 border-amber-200 text-amber-200',
+                    ].join(' ')}
+                  >
+                    <Flame className={`h-3 w-3 ${lit ? 'fill-white' : ''}`} />
                   </span>
-                </div>
-                {expandVocabNotice && (
-                  <p className="mt-0.5 text-xs font-extrabold text-emerald-600">
-                    {expandVocabNotice}
-                  </p>
-                )}
-              </div>
-
-              {onExpandVocab && (
-                <button
-                  type="button"
-                  disabled={isExpandingVocab}
-                  onClick={() => {
-                    soundEngine.playPop();
-                    onExpandVocab();
-                  }}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border-2 border-violet-300 border-b-[4px] border-b-violet-400 bg-white px-3 py-1.5 font-display text-xs font-extrabold text-violet-700 hover:bg-violet-50 active:translate-y-[2px] active:border-b-2 disabled:opacity-60 cursor-pointer transition-all"
-                >
-                  {isExpandingVocab ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <CloudDownload className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                  <span>
-                    {isExpandingVocab
-                      ? t(lang, 'home.expandingVocab')
-                      : t(lang, 'home.expandVocab')}
-                  </span>
-                </button>
-              )}
+                );
+              })}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-            <h2 className="font-display text-lg sm:text-xl font-extrabold text-slate-700">
-              {t(lang, 'home.sessionMode')}
-            </h2>
+          {/* Live Vocabulary Bank Card */}
+          <div
+            data-testid="vocab-bank-card"
+            className="flex items-center justify-between gap-2.5 rounded-3xl border-2 border-violet-200 border-b-[5px] border-b-violet-300 bg-gradient-to-r from-violet-50/90 via-fuchsia-50/70 to-white px-4 py-3.5 shadow-sm"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-display text-base sm:text-lg font-extrabold text-violet-950 leading-tight">
+                <BookOpen className="h-4.5 w-4.5 shrink-0 text-violet-600" aria-hidden="true" />
+                <span className="truncate">
+                  {t(lang, 'home.vocabBank', { count: vocabTotalCount })}
+                </span>
+              </div>
+              {expandVocabNotice && (
+                <p className="mt-0.5 text-xs font-extrabold text-emerald-600">
+                  {expandVocabNotice}
+                </p>
+              )}
+            </div>
 
-            {/* Compact Super Mode modifier pill inline with Play Mode */}
+            {onExpandVocab && (
+              <button
+                type="button"
+                disabled={isExpandingVocab}
+                onClick={() => {
+                  soundEngine.playPop();
+                  onExpandVocab();
+                }}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border-2 border-violet-300 border-b-[4px] border-b-violet-400 bg-white px-3 py-1.5 font-display text-xs font-extrabold text-violet-700 hover:bg-violet-50 active:translate-y-[2px] active:border-b-2 disabled:opacity-60 cursor-pointer transition-all"
+              >
+                {isExpandingVocab ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CloudDownload className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span>
+                  {isExpandingVocab
+                    ? t(lang, 'home.expandingVocab')
+                    : t(lang, 'home.expandVocab')}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Focused Practice Studio */}
+        <Card25D className="flex flex-col gap-4 border-amber-200/80 bg-white/95 p-4 sm:p-5">
+          {/* Row 1: Game Mode + Super Mode Toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="grid flex-1 min-w-[220px] grid-cols-2 gap-1.5 rounded-2xl bg-amber-100/70 border border-amber-200/80 p-1 shadow-inner">
+              <button
+                type="button"
+                aria-pressed={mode === 'word-cross'}
+                onClick={() => handleSelectMode('word-cross')}
+                className={[
+                  'flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 font-display text-sm font-extrabold transition-all cursor-pointer',
+                  mode === 'word-cross'
+                    ? 'bg-white text-rose-700 shadow-sm border-b-2 border-rose-300'
+                    : 'text-slate-700 hover:bg-white/60',
+                ].join(' ')}
+              >
+                <Grid3X3 className="h-4 w-4" aria-hidden="true" />
+                <span>{t(lang, 'home.wordCross')}</span>
+              </button>
+
+              <button
+                type="button"
+                aria-pressed={mode === 'sentence-pop'}
+                onClick={() => handleSelectMode('sentence-pop')}
+                className={[
+                  'flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 font-display text-sm font-extrabold transition-all cursor-pointer',
+                  mode === 'sentence-pop'
+                    ? 'bg-white text-violet-700 shadow-sm border-b-2 border-violet-300'
+                    : 'text-slate-700 hover:bg-white/60',
+                ].join(' ')}
+              >
+                <BookOpen className="h-4 w-4" aria-hidden="true" />
+                <span>{t(lang, 'home.sentencePop')}</span>
+              </button>
+            </div>
+
+            {/* Inline Super Mode Switch */}
             <button
               type="button"
               role="switch"
@@ -345,10 +403,10 @@ export function HomeHub({
                 setSuperMode((prev) => !prev);
               }}
               className={[
-                'inline-flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs sm:text-sm font-display font-extrabold transition-all duration-150 cursor-pointer select-none',
+                'inline-flex items-center gap-2 rounded-full border-2 px-3 py-2 text-xs sm:text-sm font-display font-extrabold transition-all duration-150 cursor-pointer select-none',
                 superMode
                   ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 border-violet-600 text-white shadow-sm'
-                  : 'bg-white/90 border-amber-200 text-slate-600 hover:border-violet-300 hover:text-violet-600',
+                  : 'bg-white border-amber-200 text-slate-600 hover:border-violet-300 hover:text-violet-600',
               ].join(' ')}
             >
               <Sparkles
@@ -373,358 +431,224 @@ export function HomeHub({
             </button>
           </div>
 
-          {/* Distinct Bento Grid: Featured Quick Play Hero + 2 Side-by-Side Mode Cards */}
-          <div className="flex flex-col gap-3.5">
-            {/* Hero Card: Quick Play */}
-            <button
-              type="button"
-              onClick={() => handleChooseSession('quick')}
-              className="group flex items-center gap-4 rounded-3xl border-2 border-orange-200 border-b-[6px] border-b-orange-400 bg-gradient-to-r from-white via-orange-50/60 to-rose-50/70 p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:from-orange-50/80 hover:to-rose-100/70 active:translate-y-[3px] active:border-b-2 cursor-pointer"
-            >
-              <div className="flex h-15 w-15 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF8A65] to-[#F43F5E] border-b-4 border-[#BE123C] text-white shadow-sm">
-                <Zap className="h-8 w-8 fill-white" aria-hidden="true" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
-                  {t(lang, 'home.quickMode')}
-                </div>
-                <p className="text-sm font-bold text-slate-500">
-                  {t(lang, 'home.quickModeDesc')}
-                </p>
-              </div>
-              <span className="hidden sm:inline-flex items-center gap-1 rounded-2xl bg-[#FF7A59] px-3.5 py-2 font-display text-sm font-extrabold text-white shadow-xs group-hover:translate-x-0.5 transition-transform">
-                <Play className="h-4 w-4 fill-white" aria-hidden="true" />
-              </span>
-              <ChevronRight
-                className="sm:hidden h-6 w-6 text-orange-400 transition-transform group-hover:translate-x-1"
-                aria-hidden="true"
-              />
-            </button>
-
-            {/* 2-Column Bento Row: Endless & Study Lab */}
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              {/* Bento Card 2: Endless */}
-              <button
-                type="button"
-                onClick={() => handleChooseSession('endless')}
-                className="group flex flex-row sm:flex-col items-center sm:items-start justify-between gap-3.5 rounded-3xl border-2 border-violet-200 border-b-[6px] border-b-violet-400 bg-white p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:bg-violet-50/60 active:translate-y-[3px] active:border-b-2 cursor-pointer"
-              >
-                <div className="flex w-auto sm:w-full items-center justify-between gap-2">
-                  <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#6366F1] border-b-4 border-[#4338CA] text-white shadow-sm">
-                    <InfinityIcon className="h-7 w-7" aria-hidden="true" />
-                  </div>
-                  <div className="hidden sm:flex flex-wrap items-center justify-end gap-1.5">
-                    <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-extrabold text-rose-600">
-                      <Heart className="h-3 w-3 fill-rose-500" aria-hidden="true" />
-                      ×3
-                    </span>
-                    {bestEndlessScore > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-extrabold text-amber-800">
-                        <Trophy className="w-3 h-3 text-amber-500" aria-hidden="true" />
-                        {t(lang, 'home.bestEndless', { count: bestEndlessScore })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1 sm:w-full">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
-                      {t(lang, 'home.endlessMode')}
-                    </span>
-                    <span className="sm:hidden inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-extrabold text-rose-600">
-                      <Heart className="h-3 w-3 fill-rose-500" aria-hidden="true" />
-                      ×3
-                    </span>
-                    {bestEndlessScore > 0 && (
-                      <span className="sm:hidden inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-extrabold text-amber-800">
-                        <Trophy className="w-3 h-3 text-amber-500" aria-hidden="true" />
-                        {t(lang, 'home.bestEndless', { count: bestEndlessScore })}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-sm font-bold text-slate-500">
-                    {t(lang, 'home.endlessModeDesc')}
-                  </p>
-                </div>
-                <ChevronRight
-                  className="sm:hidden h-6 w-6 text-violet-400 transition-transform group-hover:translate-x-1"
-                  aria-hidden="true"
-                />
-              </button>
-
-              {/* Bento Card 3: Study Lab */}
-              <button
-                type="button"
-                onClick={() => handleChooseSession('practice')}
-                className="group flex flex-row sm:flex-col items-center sm:items-start justify-between gap-3.5 rounded-3xl border-2 border-teal-200 border-b-[6px] border-b-teal-400 bg-white p-4 sm:p-5 text-left bevel-25d transition-all duration-100 hover:bg-teal-50/60 active:translate-y-[3px] active:border-b-2 cursor-pointer"
-              >
-                <div className="flex w-auto sm:w-full items-center justify-between gap-2">
-                  <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#10B981] border-b-4 border-[#047857] text-white shadow-sm">
-                    <GraduationCap className="h-7 w-7" aria-hidden="true" />
-                  </div>
-                  <span className="hidden sm:inline-flex items-center rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-extrabold text-teal-800">
-                    8 {t(lang, 'home.topics')}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1 sm:w-full">
-                  <div className="font-display text-xl sm:text-2xl font-extrabold text-slate-800">
-                    {t(lang, 'home.practiceMode')}
-                  </div>
-                  <p className="mt-0.5 text-sm font-bold text-slate-500">
-                    {t(lang, 'home.practiceModeDesc')}
-                  </p>
-                </div>
-                <ChevronRight
-                  className="sm:hidden h-6 w-6 text-teal-400 transition-transform group-hover:translate-x-1"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-        </motion.section>
-      ) : (
-        /* STEP 2: Clean, focused setup panel for the chosen mode */
-        <motion.section
-          key="mode-setup"
-          initial={{ opacity: 0, x: 16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.16 }}
-          className="flex flex-col gap-4"
-        >
-          {/* Setup sub-header with Back + Super Mode switch + Mode badge */}
-          <div className="flex items-center justify-between gap-2">
-            <Button25D
-              color="white"
-              size="sm"
-              onClick={() => {
-                soundEngine.playPop();
-                setSelectedSession(null);
-              }}
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              <span>{t(lang, 'game.back')}</span>
-            </Button25D>
-
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={superMode}
-                data-testid="setup-super-mode-toggle"
-                title={t(lang, 'home.superModeDesc')}
-                onClick={() => {
-                  soundEngine.playPop();
-                  setSuperMode((prev) => !prev);
-                }}
-                className={[
-                  'inline-flex items-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-xs font-display font-extrabold transition-all duration-150 cursor-pointer select-none',
-                  superMode
-                    ? 'bg-gradient-to-r from-violet-500 to-indigo-500 border-violet-600 text-white shadow-xs'
-                    : 'bg-white/90 border-slate-200 text-slate-600 hover:border-violet-300 hover:text-violet-600',
-                ].join(' ')}
-              >
-                <Sparkles
-                  className={`h-3.5 w-3.5 ${superMode ? 'text-amber-200' : 'text-violet-500'}`}
-                  aria-hidden="true"
-                />
-                <span>{t(lang, 'home.superMode')}</span>
-                <span
-                  aria-hidden="true"
+          {/* Row 2: Word Source Switch (CEFR A1–C1 vs My & Downloaded Decks) */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-base font-extrabold text-slate-700">
+                {t(lang, 'home.wordSource')}
+              </h2>
+              <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100/80 p-0.5">
+                <button
+                  type="button"
+                  aria-pressed={wordSource === 'cefr'}
+                  onClick={() => {
+                    soundEngine.playPop();
+                    setWordSource('cefr');
+                  }}
                   className={[
-                    'relative inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors',
-                    superMode ? 'bg-slate-900/35' : 'bg-slate-200',
+                    'rounded-lg px-3 py-1 font-display text-xs font-extrabold transition-all cursor-pointer',
+                    wordSource === 'cefr'
+                      ? 'bg-white text-rose-600 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900',
                   ].join(' ')}
                 >
-                  <span
-                    className={[
-                      'h-3 w-3 rounded-full bg-white shadow-xs transition-transform',
-                      superMode ? 'translate-x-3' : 'translate-x-0',
-                    ].join(' ')}
-                  />
-                </span>
-              </button>
-
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white border-2 border-slate-200 px-3.5 py-1 font-display text-sm font-extrabold text-slate-700 shadow-xs">
-                {selectedSession === 'quick' && (
-                  <>
-                    <Zap className="h-4 w-4 text-sky-500 fill-sky-400" aria-hidden="true" />
-                    {t(lang, 'home.quickMode')}
-                  </>
-                )}
-                {selectedSession === 'endless' && (
-                  <>
-                    <InfinityIcon className="h-4 w-4 text-rose-500" aria-hidden="true" />
-                    {t(lang, 'home.endlessMode')}
-                  </>
-                )}
-                {selectedSession === 'practice' && (
-                  <>
-                    <GraduationCap className="h-4 w-4 text-emerald-500" aria-hidden="true" />
-                    {t(lang, 'home.practiceMode')}
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* Study Lab only: WordCross vs Sentence Pop segmented pill */}
-          {isPractice && (
-            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-sky-100/85 border border-sky-200/80 p-1.5 shadow-inner">
-              <button
-                type="button"
-                aria-pressed={mode === 'word-cross'}
-                onClick={() => handleSelectMode('word-cross')}
-                className={[
-                  'flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 font-display text-sm sm:text-base font-extrabold transition-all cursor-pointer',
-                  mode === 'word-cross'
-                    ? 'bg-white text-sky-700 shadow-sm border-b-2 border-sky-300'
-                    : 'text-slate-700 hover:bg-white/60 hover:text-slate-900',
-                ].join(' ')}
-              >
-                <Grid3X3 className="h-4 w-4" aria-hidden="true" />
-                <span>{t(lang, 'home.wordCross')}</span>
-              </button>
-
-              <button
-                type="button"
-                aria-pressed={mode === 'sentence-pop'}
-                onClick={() => handleSelectMode('sentence-pop')}
-                className={[
-                  'flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 font-display text-sm sm:text-base font-extrabold transition-all cursor-pointer',
-                  mode === 'sentence-pop'
-                    ? 'bg-white text-violet-700 shadow-sm border-b-2 border-violet-300'
-                    : 'text-slate-700 hover:bg-white/60 hover:text-slate-900',
-                ].join(' ')}
-              >
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                <span>{t(lang, 'home.sentencePop')}</span>
-                <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">
-                  {t(lang, 'home.studyLabBadge')}
-                </span>
-              </button>
-            </div>
-          )}
-
-          <Card25D className="flex flex-col gap-4 p-4 sm:p-5">
-            {/* CEFR Level (4 tiers) */}
-            <div className="flex flex-col gap-2">
-              <h2 className="font-display text-base font-extrabold text-slate-700">
-                {t(lang, 'home.level')}
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {CEFR_LEVELS.map((tier) => {
-                  const isSelected = level === tier;
-                  const starCount = LEVEL_STARS[tier];
-                  return (
-                    <Button25D
-                      key={tier}
-                      color={isSelected ? (tier === 'B2C1' ? 'lavender' : 'sunny') : 'white'}
-                      size="sm"
-                      aria-pressed={isSelected}
-                      onClick={() => handleSelectLevel(tier)}
-                      className="flex-col gap-0.5 py-2 px-2"
-                    >
-                      <span className="inline-flex items-center gap-0.5" aria-hidden="true">
-                        {Array.from({ length: starCount }).map((_, idx) => (
-                          <PlumpStar
-                            key={idx}
-                            className="w-3.5 h-3.5"
-                            fill={
-                              isSelected
-                                ? tier === 'B2C1'
-                                  ? '#FDE047'
-                                  : '#FFFFFF'
-                                : '#FACC15'
-                            }
-                          />
-                        ))}
-                      </span>
-                      <span className="text-sm font-extrabold">{t(lang, `levels.${tier}`)}</span>
-                      <span
-                        className={`text-[11px] font-bold leading-tight ${
-                          isSelected
-                            ? tier === 'B2C1'
-                              ? 'text-violet-100'
-                              : 'text-amber-900/80'
-                            : 'text-slate-400'
-                        }`}
-                      >
-                        {t(lang, `levels.${tier}Desc`)}
-                      </span>
-                    </Button25D>
-                  );
-                })}
+                  {t(lang, 'home.cefrTab')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={wordSource === 'deck'}
+                  onClick={() => {
+                    soundEngine.playPop();
+                    setWordSource('deck');
+                  }}
+                  className={[
+                    'rounded-lg px-3 py-1 font-display text-xs font-extrabold transition-all cursor-pointer',
+                    wordSource === 'deck'
+                      ? 'bg-white text-violet-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900',
+                  ].join(' ')}
+                >
+                  {t(lang, 'home.decksTab')} ({playableDecks.length})
+                </button>
               </div>
             </div>
 
-            {/* Study Lab Only: 8-Topic Multi-Select Grid */}
-            {isPractice && (
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-display text-base font-extrabold text-slate-700">
-                      {t(lang, 'home.topics')}
-                    </h2>
-                    {isMixActive && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-display font-bold text-amber-900">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
-                        {t(lang, 'home.mixActive')}
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleSelectAllTopics}
-                    className="rounded-full bg-sky-50 hover:bg-sky-100 border border-sky-200 px-3 py-1 text-xs font-display font-extrabold text-sky-700 transition-colors cursor-pointer"
-                  >
-                    {t(lang, 'home.selectAll')}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {ALL_TOPICS.map((topic) => {
-                    const isSelected = topics.includes(topic);
-                    const { color, Icon } = TOPIC_META[topic];
+            {wordSource === 'cefr' ? (
+              <>
+                {/* 5 Standard CEFR Levels: A1, A2, B1, B2, C1 */}
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {CEFR_LEVELS.map((lvl) => {
+                    const meta = LEVEL_META[lvl];
+                    const isSelected = level === lvl;
                     return (
                       <Button25D
-                        key={topic}
-                        color={isSelected ? color : 'white'}
+                        key={lvl}
+                        color={isSelected ? meta.activeColor : 'white'}
                         size="sm"
                         aria-pressed={isSelected}
-                        onClick={() => handleToggleTopic(topic)}
-                        className="justify-start px-3 py-2.5 text-xs sm:text-sm"
+                        onClick={() => handleSelectLevel(lvl)}
+                        className="flex-col gap-0.5 py-2 px-1.5"
                       >
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        <span className="truncate">{t(lang, `topics.${topic}`)}</span>
+                        <span className="inline-flex items-center gap-0.5" aria-hidden="true">
+                          {Array.from({ length: meta.stars }).map((_, idx) => (
+                            <PlumpStar
+                              key={idx}
+                              className="w-3 h-3"
+                              fill={
+                                isSelected
+                                  ? meta.activeColor === 'sunny'
+                                    ? '#FFFFFF'
+                                    : '#FDE047'
+                                  : '#FACC15'
+                              }
+                            />
+                          ))}
+                        </span>
+                        <span className="text-sm font-extrabold leading-tight">
+                          {t(lang, meta.labelKey)}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold leading-none ${
+                            isSelected
+                              ? meta.activeColor === 'sunny'
+                                ? 'text-amber-950/80'
+                                : 'text-white/90'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {t(lang, meta.descKey)}
+                        </span>
                       </Button25D>
                     );
                   })}
                 </div>
 
-                {topics.length === 0 && (
-                  <p className="text-xs sm:text-sm font-bold text-rose-500">
-                    {t(lang, 'home.selectAtLeastOneTopic')}
-                  </p>
+                {/* 8 Topics Multi-Select */}
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-display text-sm font-extrabold text-slate-600">
+                        {t(lang, 'home.topics')}
+                      </h3>
+                      {isMixActive && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-display font-bold text-amber-900">
+                          <Sparkles className="w-3 h-3 text-amber-500" aria-hidden="true" />
+                          {t(lang, 'home.mixActive')}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSelectAllTopics}
+                      className="text-xs font-extrabold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      {t(lang, 'home.selectAll')}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {ALL_TOPICS.map((topic) => {
+                      const isSelected = topics.includes(topic);
+                      const { color, Icon } = TOPIC_META[topic];
+                      return (
+                        <Button25D
+                          key={topic}
+                          color={isSelected ? color : 'white'}
+                          size="sm"
+                          aria-pressed={isSelected}
+                          onClick={() => handleToggleTopic(topic)}
+                          className="justify-start px-2.5 py-2 text-xs sm:text-sm"
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">{t(lang, `topics.${topic}`)}</span>
+                        </Button25D>
+                      );
+                    })}
+                  </div>
+
+                  {topics.length === 0 && (
+                    <p className="text-xs font-bold text-rose-500">
+                      {t(lang, 'home.selectAtLeastOneTopic')}
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Custom & Downloaded Word Decks Picker */
+              <div className="flex flex-col gap-2.5">
+                {playableDecks.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {playableDecks.map((deck) => {
+                      const isSelected = activeDeck?.id === deck.id;
+                      return (
+                        <button
+                          key={deck.id}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => {
+                            soundEngine.playPop();
+                            setSelectedDeckId(deck.id);
+                          }}
+                          className={[
+                            'flex items-center justify-between gap-2 rounded-2xl border-2 border-b-[4px] p-3 text-left transition-all cursor-pointer',
+                            isSelected
+                              ? 'bg-violet-50 border-violet-400 border-b-violet-500'
+                              : 'bg-white border-slate-200 border-b-slate-300 hover:border-violet-300',
+                          ].join(' ')}
+                        >
+                          <div className="min-w-0">
+                            <div className="font-display text-sm sm:text-base font-extrabold text-slate-800 truncate">
+                              {deck.name}
+                            </div>
+                            <p className="text-xs font-bold text-slate-500">
+                              {deck.level} · {deck.words.length} {t(lang, 'decks.wordsUnit')} ·{' '}
+                              {deck.author}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-extrabold text-violet-700">
+                            {deck.level}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/50 p-5 text-center">
+                    <p className="text-sm font-bold text-slate-600">
+                      {t(lang, 'home.noDecksYet')}
+                    </p>
+                    {onOpenDecks && (
+                      <Button25D
+                        color="lavender"
+                        size="sm"
+                        onClick={onOpenDecks}
+                        className="mt-3"
+                      >
+                        <FolderHeart className="h-4 w-4" aria-hidden="true" />
+                        <span>{t(lang, 'home.openDeckLibrary')}</span>
+                      </Button25D>
+                    )}
+                  </div>
                 )}
               </div>
             )}
-          </Card25D>
+          </div>
+        </Card25D>
 
-          {/* Giant Play CTA */}
-          <Button25D
-            color="mint"
-            size="lg"
-            fullWidth
-            disabled={!canPlay}
-            onClick={handleStartPlay}
-            className="py-3.5 text-xl sm:text-2xl rounded-3xl"
-          >
-            <Play className="w-6 h-6 fill-current" aria-hidden="true" />
-            <span>{t(lang, 'home.play')}</span>
-          </Button25D>
-        </motion.section>
-      )}
+        {/* Giant Play CTA */}
+        <Button25D
+          color="coral"
+          size="lg"
+          fullWidth
+          disabled={!canPlay}
+          onClick={handleStartPlay}
+          className="py-3.5 text-xl sm:text-2xl rounded-3xl"
+        >
+          <Play className="w-6 h-6 fill-current" aria-hidden="true" />
+          <span>{t(lang, 'home.play')}</span>
+        </Button25D>
+      </motion.section>
     </div>
   );
 }

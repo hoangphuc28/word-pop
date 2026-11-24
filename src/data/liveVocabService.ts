@@ -67,9 +67,10 @@ function mapPartOfSpeech(raw: string | undefined): PartOfSpeech | null {
 
 export function mapFrequencyToCefr(freq: number): CefrLevel {
   if (freq >= 35) return 'A1';
-  if (freq >= 12) return 'A2';
-  if (freq >= 3) return 'B1';
-  return 'B2C1';
+  if (freq >= 14) return 'A2';
+  if (freq >= 5) return 'B1';
+  if (freq >= 1.5) return 'B2';
+  return 'C1';
 }
 
 function parseDatamuseFrequency(tags: string[] | undefined): number {
@@ -122,7 +123,11 @@ function isValidCachedEntry(raw: unknown): raw is VocabEntry {
   }
   const posOk = rec.pos === 'n.' || rec.pos === 'v.' || rec.pos === 'adj.' || rec.pos === 'adv.';
   const levelOk =
-    rec.level === 'A1' || rec.level === 'A2' || rec.level === 'B1' || rec.level === 'B2C1';
+    rec.level === 'A1' ||
+    rec.level === 'A2' ||
+    rec.level === 'B1' ||
+    rec.level === 'B2' ||
+    rec.level === 'C1';
   const topicOk = (ALL_TOPICS as readonly string[]).includes(String(rec.topic));
   if (!posOk || !levelOk || !topicOk) return false;
   return new RegExp(`\\b${rec.word}\\b`, 'i').test(rec.example);
@@ -257,6 +262,45 @@ async function fetchDictionaryDetails(
   } catch {
     return null;
   }
+}
+
+/**
+ * Smart auto-fill helper for the Custom Word Deck Editor:
+ * given an English word (3–8 letters), fetches IPA, POS, EN clue, VI translation,
+ * example sentence, and native MP3 audio URL from Free Dictionary API + MyMemory.
+ */
+export async function autofillWordEntry(
+  rawWord: string,
+  level: CefrLevel = 'B1',
+  topic: VocabTopic = 'daily',
+  fetchFn: FetchLike = globalThis.fetch
+): Promise<Partial<VocabEntry> | null> {
+  const word = rawWord.trim().toLowerCase();
+  if (!/^[a-z]{3,8}$/.test(word) || typeof fetchFn !== 'function') {
+    return null;
+  }
+  const dict = await fetchDictionaryDetails(word, fetchFn);
+  const pos: PartOfSpeech = dict?.pos ?? 'n.';
+  const en = dict?.definition ? cleanEnglishClue(dict.definition, word) : '';
+  const example = dict?.example ?? buildFallbackExample(word, pos);
+  const vi =
+    (await translateToVietnamese(word, fetchFn)) ??
+    (en ? await translateToVietnamese(en, fetchFn) : null) ??
+    '';
+
+  return {
+    word,
+    ipa: dict?.ipa ?? `/${word}/`,
+    pos,
+    level,
+    topic,
+    en: en || `English ${pos} word`,
+    vi: vi || en || word,
+    example,
+    exampleVi: vi || example,
+    ...(dict?.audioUrl ? { audioUrl: dict.audioUrl } : {}),
+    source: 'custom',
+  };
 }
 
 export interface ExpandVocabularyResult {

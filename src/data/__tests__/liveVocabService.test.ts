@@ -22,7 +22,8 @@ describe('liveVocabService', () => {
     expect(mapFrequencyToCefr(50)).toBe('A1');
     expect(mapFrequencyToCefr(20)).toBe('A2');
     expect(mapFrequencyToCefr(6)).toBe('B1');
-    expect(mapFrequencyToCefr(1.2)).toBe('B2C1');
+    expect(mapFrequencyToCefr(2.2)).toBe('B2');
+    expect(mapFrequencyToCefr(0.8)).toBe('C1');
   });
 
   it('fetches, validates, enriches with IPA/MP3/VI, caches, and registers new words', async () => {

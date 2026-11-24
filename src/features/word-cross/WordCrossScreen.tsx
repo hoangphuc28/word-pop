@@ -155,10 +155,12 @@ export function WordCrossScreen({
       prioritizedWordKeys: prioritizedRef.current,
       excludeWordIds,
       endlessTierBonus,
+      customPool: config.customWords,
     });
   }, [
     effectiveLevel,
     config.topics,
+    config.customWords,
     seedOverride,
     baseSeed,
     sessionRound,

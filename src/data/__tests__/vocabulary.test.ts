@@ -10,9 +10,9 @@ const VALID_POS = new Set<PartOfSpeech>(['n.', 'v.', 'adj.', 'adv.']);
 const WORD_PATTERN = /^[a-z]{3,8}$/;
 
 describe('Curated Bilingual Vocabulary Bank', () => {
-  it('contains at least 360 curated entries (target 384)', () => {
-    expect(VOCABULARY.length).toBeGreaterThanOrEqual(360);
-    expect(VOCABULARY.length).toBe(384);
+  it('contains at least 480 curated entries (8 topics × 5 CEFR levels × 12 words)', () => {
+    expect(VOCABULARY.length).toBeGreaterThanOrEqual(480);
+    expect(VOCABULARY.length).toBe(480);
   });
 
   it('has globally unique ids and globally unique words', () => {
@@ -90,21 +90,24 @@ describe('Curated Bilingual Vocabulary Bank', () => {
     expect(leakedInClue).toEqual([]);
   });
 
-  it('populates all 32 topic × CEFR level buckets with at least 11 entries (target 12)', () => {
-    const underfilled: string[] = [];
+  it('populates all 40 topic × CEFR level buckets with exactly 12 entries', () => {
+    const mismatched: string[] = [];
+    let bucketCount = 0;
 
     for (const topic of ALL_TOPICS) {
       for (const level of CEFR_LEVELS) {
+        bucketCount += 1;
         const count = VOCABULARY.filter(
           (entry) => entry.topic === topic && entry.level === level
         ).length;
-        if (count < 12) {
-          underfilled.push(`${topic}:${level}=${count}`);
+        if (count !== 12) {
+          mismatched.push(`${topic}:${level}=${count}`);
         }
       }
     }
 
-    expect(underfilled).toEqual([]);
+    expect(bucketCount).toBe(40);
+    expect(mismatched).toEqual([]);
   });
 
   it('resolves every entry cleanly via VOCAB_BY_ID', () => {
@@ -120,7 +123,7 @@ describe('Curated Bilingual Vocabulary Bank', () => {
     expect(dailyA1.every((e) => e.topic === 'daily' && e.level === 'A1')).toBe(true);
 
     const foodAndTravel = getVocabularyByFilter(['food', 'travel']);
-    expect(foodAndTravel.length).toBe(96);
+    expect(foodAndTravel.length).toBe(120);
     expect(
       foodAndTravel.every((e) => e.topic === 'food' || e.topic === 'travel')
     ).toBe(true);

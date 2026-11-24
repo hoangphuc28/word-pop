@@ -16,8 +16,8 @@ function renderHomeHub(overrides: Partial<HomeHubProps> = {}) {
     lang: 'en',
     dailyStreak: 3,
     playedToday: true,
-    bestEndlessScore: 7,
     isFullscreen: false,
+    onOpenDecks: vi.fn(),
     onToggleFullscreen: vi.fn(),
     onOpenSettings: vi.fn(),
     onStartPlay: vi.fn(),
@@ -34,7 +34,7 @@ describe('HomeHub', () => {
     vi.clearAllMocks();
   });
 
-  it('renders Step 1 with WordPop logo, daily streak banner, Super Mode switch, 3 mode cards, and header buttons', async () => {
+  it('renders WordPop logo, daily streak banner, Super Mode switch, 5 CEFR levels, and header buttons', async () => {
     const user = userEvent.setup();
     const { props } = renderHomeHub();
 
@@ -43,11 +43,14 @@ describe('HomeHub', () => {
     expect(screen.getByTestId('super-mode-toggle')).toHaveAttribute('role', 'switch');
     expect(screen.getByTestId('super-mode-toggle')).toHaveAttribute('aria-checked', 'false');
 
-    expect(screen.getByRole('button', { name: /Quick Play/i })).toBeInTheDocument();
-    const endlessBtn = screen.getByRole('button', { name: /Endless/i });
-    expect(endlessBtn).toBeInTheDocument();
-    expect(endlessBtn).toHaveTextContent('×3');
-    expect(screen.getByRole('button', { name: /Study Lab/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^A1\s*Starter$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^A2\s*Elementary$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^B1\s*Intermediate$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^B2\s*Upper-Int$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^C1\s*Advanced$/i })).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('open-decks-btn'));
+    expect(props.onOpenDecks).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: /Fullscreen/i }));
     expect(props.onToggleFullscreen).toHaveBeenCalledTimes(1);
@@ -56,30 +59,18 @@ describe('HomeHub', () => {
     expect(props.onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('hides Topic selector in Quick Play Step 2, shows 4 CEFR tiers, and starts with all 8 topics', async () => {
+  it('starts WordCross practice at chosen CEFR level with all 8 topics', async () => {
     const user = userEvent.setup();
     const { props } = renderHomeHub();
 
-    await user.click(screen.getByRole('button', { name: /Quick Play/i }));
-
-    // Topic selector and Study Lab mode toggle are hidden
-    expect(screen.queryByRole('button', { name: /Sentence Pop/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Daily Life/i })).not.toBeInTheDocument();
-
-    // 4 CEFR tiers shown
-    expect(screen.getByRole('button', { name: /A1/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /A2/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /B1/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /B2–C1/i })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /B1/i }));
+    await user.click(screen.getByRole('button', { name: /^C1\s*Advanced$/i }));
     await user.click(screen.getByRole('button', { name: /Play!/i }));
 
     expect(props.onStartPlay).toHaveBeenCalledWith({
       mode: 'word-cross',
-      sessionMode: 'quick',
+      sessionMode: 'practice',
       inputMode: 'tray',
-      level: 'B1',
+      level: 'C1',
       topics: [...ALL_TOPICS],
     });
   });
@@ -91,33 +82,26 @@ describe('HomeHub', () => {
     await user.click(screen.getByTestId('super-mode-toggle'));
     expect(screen.getByTestId('super-mode-toggle')).toHaveAttribute('aria-checked', 'true');
 
-    await user.click(screen.getByRole('button', { name: /Endless/i }));
-    expect(screen.getByTestId('setup-super-mode-toggle')).toHaveAttribute('aria-checked', 'true');
-    expect(screen.queryByRole('button', { name: /Daily Life/i })).not.toBeInTheDocument();
-
     await user.click(screen.getByRole('button', { name: /Play!/i }));
 
     expect(props.onStartPlay).toHaveBeenCalledWith({
       mode: 'word-cross',
-      sessionMode: 'endless',
+      sessionMode: 'practice',
       inputMode: 'keyboard',
       level: 'A1',
       topics: [...ALL_TOPICS],
     });
   });
 
-  it('shows WordCross / Sentence Pop toggle and 8-topic multi-select in Study Lab, disabling Play when 0 topics selected', async () => {
+  it('supports switching to Sentence Pop and disables Play when 0 topics selected', async () => {
     const user = userEvent.setup();
     const { props } = renderHomeHub();
-
-    await user.click(screen.getByRole('button', { name: /Study Lab/i }));
 
     const wordCrossBtn = screen.getByRole('button', { name: /Word Cross/i });
     const sentencePopBtn = screen.getByRole('button', { name: /Sentence Pop/i });
     expect(wordCrossBtn).toHaveAttribute('aria-pressed', 'true');
     expect(sentencePopBtn).toHaveAttribute('aria-pressed', 'false');
 
-    // All 8 topics are visible
     const topicButtons = [
       screen.getByRole('button', { name: /Daily Life/i }),
       screen.getByRole('button', { name: /Food & Drink/i }),
@@ -130,7 +114,6 @@ describe('HomeHub', () => {
     ];
     expect(topicButtons).toHaveLength(8);
 
-    // Deselect any initially selected topics until 0 remain -> Play disabled
     for (const btn of topicButtons) {
       if (btn.getAttribute('aria-pressed') === 'true') {
         await user.click(btn);
@@ -141,19 +124,16 @@ describe('HomeHub', () => {
     expect(playBtn).toBeDisabled();
     expect(screen.getByText(/Please select at least one topic/i)).toBeInTheDocument();
 
-    // Select 2 topics -> Mix badge appears and Play is enabled
     await user.click(screen.getByRole('button', { name: /Travel/i }));
     await user.click(screen.getByRole('button', { name: /Tech/i }));
     expect(screen.getByText('Mix Mode!')).toBeInTheDocument();
     expect(playBtn).toBeEnabled();
 
-    // Select All convenience button selects all 8 topics
     await user.click(screen.getByRole('button', { name: /Select All/i }));
     for (const btn of topicButtons) {
       expect(btn).toHaveAttribute('aria-pressed', 'true');
     }
 
-    // Switch to Sentence Pop and Play
     await user.click(sentencePopBtn);
     expect(sentencePopBtn).toHaveAttribute('aria-pressed', 'true');
     await user.click(playBtn);
@@ -167,13 +147,69 @@ describe('HomeHub', () => {
     });
   });
 
+  it('allows selecting a custom or downloaded Word Deck to practice', async () => {
+    const user = userEvent.setup();
+    const sampleDeck = {
+      id: 'deck-custom-1',
+      name: 'My IELTS Verbs',
+      description: 'Test deck',
+      author: 'Phúc',
+      level: 'B2' as const,
+      color: 'coral' as const,
+      origin: 'mine' as const,
+      createdAt: 1,
+      updatedAt: 1,
+      words: [
+        {
+          id: 'w1',
+          word: 'apple',
+          ipa: '/ˈæp.əl/',
+          pos: 'n.' as const,
+          level: 'A1' as const,
+          topic: 'food' as const,
+          en: 'A fruit',
+          vi: 'Táo',
+          example: 'An apple a day.',
+          exampleVi: 'Một quả táo mỗi ngày.',
+        },
+        {
+          id: 'w2',
+          word: 'grape',
+          ipa: '/ɡreɪp/',
+          pos: 'n.' as const,
+          level: 'A1' as const,
+          topic: 'food' as const,
+          en: 'Small purple fruit',
+          vi: 'Nho',
+          example: 'This grape is sweet.',
+          exampleVi: 'Quả nho này ngọt.',
+        },
+      ],
+    };
+
+    const { props } = renderHomeHub({ playableDecks: [sampleDeck] });
+
+    await user.click(screen.getByRole('button', { name: /My & Saved Decks/i }));
+    expect(screen.getByRole('button', { name: /My IELTS Verbs/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Play!/i }));
+    expect(props.onStartPlay).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'word-cross',
+        sessionMode: 'practice',
+        deckId: 'deck-custom-1',
+        deckName: 'My IELTS Verbs',
+        customWords: sampleDeck.words,
+      })
+    );
+  });
+
   it('renders Vietnamese UI when lang is vi', () => {
     renderHomeHub({ lang: 'vi', dailyStreak: 5, playedToday: true });
 
     expect(screen.getByTestId('daily-streak-banner')).toHaveTextContent('Chuỗi 5 ngày!');
-    expect(screen.getByText('Chơi Nhanh')).toBeInTheDocument();
-    expect(screen.getByText('Vô Hạn')).toBeInTheDocument();
-    expect(screen.getByText('Luyện Tập')).toBeInTheDocument();
+    expect(screen.getByText('Ô Chữ Từ Vựng')).toBeInTheDocument();
+    expect(screen.getByText('Điền Câu Chuẩn')).toBeInTheDocument();
   });
 });
 
@@ -289,7 +325,8 @@ describe('SplashScreen & Modals', () => {
           A1: { attempts: 10, correct: 9 },
           A2: { attempts: 6, correct: 5 },
           B1: { attempts: 4, correct: 3 },
-          B2C1: { attempts: 0, correct: 0 },
+          B2: { attempts: 0, correct: 0 },
+          C1: { attempts: 0, correct: 0 },
         },
       },
     };
@@ -301,7 +338,8 @@ describe('SplashScreen & Modals', () => {
     expect(screen.getByText('1')).toBeInTheDocument(); // 1 word mastered
     expect(screen.getByText('6')).toBeInTheDocument();
     expect(screen.getByText('A1')).toBeInTheDocument();
-    expect(screen.getByText('B2–C1')).toBeInTheDocument();
+    expect(screen.getByText('B2')).toBeInTheDocument();
+    expect(screen.getByText('C1')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Reset Progress/i }));
     expect(onResetProgress).not.toHaveBeenCalled();

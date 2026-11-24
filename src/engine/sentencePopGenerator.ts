@@ -15,6 +15,8 @@ export interface SentencePopOptions {
   seed: number;
   prioritizedWordKeys?: string[];
   excludeWordIds?: string[];
+  /** Optional custom deck words — prioritized ahead of standard CEFR pool */
+  customPool?: VocabEntry[];
 }
 
 function mulberry32(seed: number): () => number {
@@ -94,7 +96,9 @@ function getChoiceCount(level: CefrLevel): number {
       return 4;
     case 'B1':
       return 5;
-    case 'B2C1':
+    case 'B2':
+      return 6;
+    case 'C1':
       return 6;
   }
 }
@@ -104,7 +108,8 @@ function pickTargetCandidate(
   topics: VocabTopic[],
   excludeWordIds: string[],
   priorityIndex: Map<string, number>,
-  rng: () => number
+  rng: () => number,
+  customPool?: VocabEntry[]
 ): { vocab: VocabEntry; before: string; after: string } {
   const effectiveTopics: VocabTopic[] =
     topics.length > 0 ? topics : [...ALL_TOPICS];
@@ -125,6 +130,16 @@ function pickTargetCandidate(
     }
     return null;
   };
+
+  // 0. Custom Deck pool first
+  if (customPool && customPool.length > 0) {
+    const freshCustom = customPool.filter((e) => !excludeSet.has(e.id));
+    const hitCustomFresh = tryList(freshCustom);
+    if (hitCustomFresh) return hitCustomFresh;
+
+    const hitCustomAny = tryList(customPool);
+    if (hitCustomAny) return hitCustomAny;
+  }
 
   // 1. Primary pool: selectedTopics ∩ targetLevel (excluding excludeWordIds)
   const primary = getVocabularyByFilter(effectiveTopics, level).filter(
@@ -172,7 +187,8 @@ function pickTargetCandidate(
 function pickDistractors(
   target: VocabEntry,
   needed: number,
-  rng: () => number
+  rng: () => number,
+  customPool?: VocabEntry[]
 ): string[] {
   const chosen = new Set<string>([target.word.toLowerCase()]);
   const distractors: string[] = [];
@@ -189,6 +205,12 @@ function pickDistractors(
       }
     }
   };
+
+  // 0. Same custom deck first
+  if (customPool && customPool.length > 0) {
+    addFrom(customPool.filter((e) => e.pos === target.pos));
+    addFrom(customPool);
+  }
 
   // 1. Same level + same topic + same pos
   addFrom(
@@ -223,6 +245,7 @@ export function generateSentencePop(
     seed,
     prioritizedWordKeys = [],
     excludeWordIds = [],
+    customPool,
   } = options;
 
   const rng = mulberry32(seed);
@@ -236,11 +259,12 @@ export function generateSentencePop(
     topics,
     excludeWordIds,
     priorityIndex,
-    rng
+    rng,
+    customPool
   );
 
   const choiceCount = getChoiceCount(level);
-  const distractors = pickDistractors(vocab, choiceCount - 1, rng);
+  const distractors = pickDistractors(vocab, choiceCount - 1, rng, customPool);
   const choices = shuffleDeterministic(
     [vocab.word.toLowerCase(), ...distractors],
     rng

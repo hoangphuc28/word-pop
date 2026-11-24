@@ -17,14 +17,18 @@ import {
   recordWordAttempt,
 } from './engine/spacedRepetition';
 import {
+  ALL_TOPICS,
   makeWordKey,
   type CefrLevel,
   type PlayConfig,
   type ProgressState,
+  type WordDeck,
 } from './engine/types';
+import { DecksScreen } from './features/decks/DecksScreen';
 import { HomeHub } from './features/home/HomeHub';
 import { SentencePopScreen } from './features/sentence-pop/SentencePopScreen';
 import { WordCrossScreen } from './features/word-cross/WordCrossScreen';
+import { getPlayableDecks } from './storage/deckStore';
 import {
   computeNextDailyStreak,
   createDefaultStats,
@@ -34,7 +38,7 @@ import {
   saveProgress,
 } from './storage/progressStore';
 
-type Screen = 'home' | 'play-word-cross' | 'play-sentence-pop';
+type Screen = 'home' | 'decks' | 'play-word-cross' | 'play-sentence-pop';
 
 export interface AppProps {
   /** Optional prop used in tests to skip the initial splash screen */
@@ -61,6 +65,9 @@ export default function App({
   });
   const [isExpandingVocab, setIsExpandingVocab] = useState(false);
   const [expandVocabNotice, setExpandVocabNotice] = useState<string | null>(null);
+  const [playableDecks, setPlayableDecks] = useState<WordDeck[]>(() =>
+    getPlayableDecks()
+  );
 
   const stageRef = useRef<HTMLDivElement | null>(null);
 
@@ -97,18 +104,18 @@ export default function App({
     soundEngine.setMusicVolume(musicVolume);
   }, [musicVolume]);
 
-  // Home plays the upbeat groove track; BGM pauses automatically during active gameplay so TTS pronunciation stays clear
+  // Smoothly switch between Sunset Home BGM and Lo-Fi Sunset Chill Study BGM
   useEffect(() => {
     if (showSplash) {
       return;
     }
     const isPlaying =
       screen === 'play-word-cross' || screen === 'play-sentence-pop';
-    if (isPlaying || !musicEnabled) {
-      soundEngine.stopBgm();
-    } else {
-      soundEngine.setMusicTrack('groove');
+    soundEngine.setBgmMode(isPlaying ? 'study' : 'home');
+    if (musicEnabled) {
       soundEngine.startBgm();
+    } else {
+      soundEngine.stopBgm();
     }
   }, [screen, showSplash, musicEnabled]);
 
@@ -160,8 +167,7 @@ export default function App({
       soundEngine.setMusicVolume(volume);
       const shouldEnable = volume > 0;
       soundEngine.setMusicEnabled(shouldEnable);
-      if (shouldEnable && !showSplash && screen === 'home') {
-        soundEngine.setMusicTrack('groove');
+      if (shouldEnable && !showSplash) {
         soundEngine.startBgm();
       }
       updateProgress((prev) => ({
@@ -207,7 +213,7 @@ export default function App({
   const handleStartFromSplash = useCallback(() => {
     soundEngine.playPop();
     if (musicEnabled) {
-      soundEngine.setMusicTrack('groove');
+      soundEngine.setBgmMode('home');
       soundEngine.startBgm();
     }
     setShowSplash(false);
@@ -254,8 +260,7 @@ export default function App({
       if (nextVol !== currentVol) {
         soundEngine.setMusicVolume(nextVol);
       }
-      if (nextMusic && !showSplash && screen === 'home') {
-        soundEngine.setMusicTrack('groove');
+      if (nextMusic && !showSplash) {
         soundEngine.startBgm();
       }
       return {
@@ -283,8 +288,23 @@ export default function App({
 
   const handleBackToHome = useCallback(() => {
     speechEngine.stop();
+    setPlayableDecks(getPlayableDecks());
     setScreen('home');
     setActiveConfig(null);
+  }, []);
+
+  const handlePlayDeck = useCallback((deck: WordDeck) => {
+    setActiveConfig({
+      mode: 'word-cross',
+      sessionMode: 'practice',
+      inputMode: 'tray',
+      level: deck.level,
+      topics: [...ALL_TOPICS],
+      deckId: deck.id,
+      deckName: deck.name,
+      customWords: deck.words,
+    });
+    setScreen('play-word-cross');
   }, []);
 
   const handleExpandVocab = useCallback(async () => {
@@ -321,7 +341,8 @@ export default function App({
           A1: { ...prevStats.byLevel.A1 },
           A2: { ...prevStats.byLevel.A2 },
           B1: { ...prevStats.byLevel.B1 },
-          B2C1: { ...prevStats.byLevel.B2C1 },
+          B2: { ...prevStats.byLevel.B2 },
+          C1: { ...prevStats.byLevel.C1 },
         };
 
         for (const wordId of wordIds) {
@@ -478,15 +499,25 @@ export default function App({
                 lang={lang}
                 dailyStreak={progress.dailyStreak ?? 0}
                 playedToday={playedToday}
-                bestEndlessScore={progress.bestEndlessScore ?? 0}
                 isFullscreen={isFullscreen}
                 vocabTotalCount={vocabTotalCount}
                 isExpandingVocab={isExpandingVocab}
                 expandVocabNotice={expandVocabNotice}
+                playableDecks={playableDecks}
                 onExpandVocab={() => void handleExpandVocab()}
+                onOpenDecks={() => setScreen('decks')}
                 onToggleFullscreen={handleToggleFullscreen}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onStartPlay={handleStartPlay}
+              />
+            )}
+
+            {screen === 'decks' && (
+              <DecksScreen
+                lang={lang}
+                onPlayDeck={handlePlayDeck}
+                onDecksChanged={() => setPlayableDecks(getPlayableDecks())}
+                onBack={handleBackToHome}
               />
             )}
 

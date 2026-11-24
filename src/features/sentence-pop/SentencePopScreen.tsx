@@ -88,8 +88,18 @@ export function SentencePopScreen({
       seed: effectiveSeed,
       prioritizedWordKeys: prioritizedRef.current,
       excludeWordIds,
+      customPool: config.customWords,
     });
-  }, [config.level, config.topics, seedOverride, baseSeed, sessionRound, puzzleIndex, excludeWordIds]);
+  }, [
+    config.level,
+    config.topics,
+    config.customWords,
+    seedOverride,
+    baseSeed,
+    sessionRound,
+    puzzleIndex,
+    excludeWordIds,
+  ]);
 
   const targetUpper = puzzle.vocab.word.toUpperCase();
   const targetLength = targetUpper.length;

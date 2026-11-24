@@ -30,7 +30,8 @@ describe('progressStore (WordPop)', () => {
         A1: { attempts: 0, correct: 0 },
         A2: { attempts: 0, correct: 0 },
         B1: { attempts: 0, correct: 0 },
-        B2C1: { attempts: 0, correct: 0 },
+        B2: { attempts: 0, correct: 0 },
+        C1: { attempts: 0, correct: 0 },
       },
     });
 
@@ -69,7 +70,8 @@ describe('progressStore (WordPop)', () => {
           A1: { attempts: 4, correct: 4 },
           A2: { attempts: 3, correct: 2 },
           B1: { attempts: 2, correct: 1 },
-          B2C1: { attempts: 1, correct: 1 },
+          B2: { attempts: 1, correct: 1 },
+          C1: { attempts: 0, correct: 0 },
         },
       },
       words: {
@@ -202,7 +204,8 @@ describe('progressStore (WordPop)', () => {
         A1: { attempts: 0, correct: 1 },
         A2: { attempts: 5, correct: 4 },
         B1: { attempts: 0, correct: 0 },
-        B2C1: { attempts: 0, correct: 0 },
+        B2: { attempts: 0, correct: 0 },
+        C1: { attempts: 0, correct: 0 },
       },
     });
     expect(loaded.settings).toEqual({

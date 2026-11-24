@@ -19,6 +19,8 @@ export interface WordCrossOptions {
   prioritizedWordKeys?: string[];
   excludeWordIds?: string[];
   endlessTierBonus?: number;
+  /** Optional custom deck words — prioritized ahead of standard CEFR pool */
+  customPool?: VocabEntry[];
 }
 
 const MAX_GRID_SIZE = 9;
@@ -88,7 +90,8 @@ function buildCandidateTiers(
   topics: VocabTopic[],
   excludeWordIds: string[],
   priorityIndex: Map<string, number>,
-  rng: () => number
+  rng: () => number,
+  customPool?: VocabEntry[]
 ): VocabEntry[][] {
   const effectiveTopics: VocabTopic[] =
     topics.length > 0 ? topics : [...ALL_TOPICS];
@@ -102,6 +105,19 @@ function buildCandidateTiers(
   };
 
   const tiers: VocabEntry[][] = [];
+
+  // Custom Deck Priority Tier (when playing a user or downloaded deck)
+  if (customPool && customPool.length > 0) {
+    const validCustom = customPool.filter((e) => /^[a-z]{3,8}$/i.test(e.word));
+    const freshCustom = validCustom.filter((e) => !excludeSet.has(e.id));
+    if (freshCustom.length > 0) {
+      tiers.push(takeUnique(freshCustom));
+    }
+    const seenCustom = takeUnique(validCustom);
+    if (seenCustom.length > 0) {
+      tiers.push(seenCustom);
+    }
+  }
 
   // Tier 0: Primary pool
   const primary = getVocabularyByFilter(effectiveTopics, level).filter(
@@ -493,10 +509,18 @@ function getTierConfig(
         blankRatio: 0.65,
         distractorCount: 2,
       };
-    case 'B2C1': {
+    case 'B2': {
+      return {
+        targetWords: 4,
+        minWords: 3,
+        blankRatio: 0.72,
+        distractorCount: 3,
+      };
+    }
+    case 'C1': {
       const bonus = Math.max(0, endlessTierBonus ?? 0);
       const blankRatio =
-        bonus > 0 ? Math.min(0.85, 0.75 + bonus * 0.05) : 0.75;
+        bonus > 0 ? Math.min(0.85, 0.78 + bonus * 0.04) : 0.78;
       const distractorCount = bonus > 0 ? 4 : 3;
       return {
         targetWords: 4,
@@ -516,6 +540,7 @@ export function generateWordCross(options: WordCrossOptions): WordCrossPuzzle {
     prioritizedWordKeys = [],
     excludeWordIds = [],
     endlessTierBonus,
+    customPool,
   } = options;
 
   const rng = mulberry32(seed);
@@ -531,7 +556,8 @@ export function generateWordCross(options: WordCrossOptions): WordCrossPuzzle {
     topics,
     excludeWordIds,
     priorityIndex,
-    rng
+    rng,
+    customPool
   );
 
   // Progressively expand candidate pool across relaxation tiers until target layout is built
@@ -637,7 +663,7 @@ export function generateWordCross(options: WordCrossOptions): WordCrossPuzzle {
   const allCellIds = Object.keys(cells);
   const protectedAnchors = new Set<string>();
 
-  if (level !== 'B2C1') {
+  if (level !== 'B2' && level !== 'C1') {
     for (const entry of entries) {
       // Check if entry already has a protected anchor
       const alreadyAnchored = entry.cellIds.some((id) =>

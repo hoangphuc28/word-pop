@@ -13,7 +13,8 @@ const EXPECTED_CHOICES: Record<CefrLevel, number> = {
   A1: 4,
   A2: 4,
   B1: 5,
-  B2C1: 6,
+  B2: 6,
+  C1: 6,
 };
 
 describe('generateSentencePop', () => {
@@ -55,7 +56,7 @@ describe('generateSentencePop', () => {
     // Run 15 rounds on a 12-word bucket (daily x B2C1) so relaxation is exercised
     for (let round = 0; round < 15; round++) {
       const puzzle = generateSentencePop({
-        level: 'B2C1',
+        level: 'C1',
         topics: ['daily'],
         seed: 3000 + round,
         excludeWordIds: [...excludeWordIds],
@@ -63,14 +64,14 @@ describe('generateSentencePop', () => {
 
       const reconstructed = `${puzzle.sentenceBefore}${puzzle.vocab.word}${puzzle.sentenceAfter}`;
       expect(reconstructed.toLowerCase()).toBe(puzzle.vocab.example.toLowerCase());
-      expect(puzzle.choices.length).toBe(EXPECTED_CHOICES.B2C1);
-      expect(new Set(puzzle.choices).size).toBe(EXPECTED_CHOICES.B2C1);
+      expect(puzzle.choices.length).toBe(EXPECTED_CHOICES.C1);
+      expect(new Set(puzzle.choices).size).toBe(EXPECTED_CHOICES.C1);
       expect(puzzle.choices).toContain(puzzle.vocab.word.toLowerCase());
 
       if (round < 12) {
-        // Primary pool has 12 words in daily x B2C1
+        // Primary pool has 12 words in daily x C1
         expect(puzzle.vocab.topic).toBe('daily');
-        expect(puzzle.vocab.level).toBe('B2C1');
+        expect(puzzle.vocab.level).toBe('C1');
         expect(excludeWordIds).not.toContain(puzzle.vocab.id);
       } else {
         // Relax 1 keeps topic focus ('daily') at adjacent CEFR level

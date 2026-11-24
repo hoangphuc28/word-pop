@@ -1,98 +1,62 @@
-export type BgmTrackId = 'groove' | 'lofi';
+export type BgmMode = 'home' | 'study';
 
-export const BGM_TRACK_IDS: readonly BgmTrackId[] = ['groove', 'lofi'];
-
-type AudioContextCtor = typeof AudioContext;
-
-interface WindowWithWebkitAudio extends Window {
-  webkitAudioContext?: AudioContextCtor;
+interface AudioContextConstructor {
+  new (): AudioContext;
 }
 
-const BGM_TOTAL_STEPS = 64;
-
-const TRACK_STEP_MS: Record<BgmTrackId, number> = {
-  lofi: 183, // ~82 BPM chill lo-fi groove (gameplay)
-  groove: 122, // ~122 BPM upbeat future-pop / chill-house (home)
-};
-
-// Track 1: Chill Lo-Fi (Fmaj7 -> Em7 -> Dm9 -> Cmaj7) — warm, stress-free
-const LOFI_CHORDS: readonly (readonly number[])[] = [
-  [174.61, 220.0, 261.63, 329.63], // Bar 0: Fmaj7
-  [164.81, 196.0, 246.94, 293.66], // Bar 1: Em7
-  [146.83, 220.0, 261.63, 329.63], // Bar 2: Dm9
-  [130.81, 196.0, 246.94, 329.63], // Bar 3: Cmaj7
-];
-
-const LOFI_BASS: readonly number[] = [
-  87.31, // F2
-  82.41, // E2
-  73.42, // D2
-  65.41, // C2
-];
-
-const LOFI_LEAD: readonly (number | null)[] = [
-  // Bar 0 (Fmaj7)
-  null, null, 523.25, null, null, null, 659.25, null,
-  null, null, 587.33, null, null, null, null, null,
-  // Bar 1 (Em7)
-  null, null, 493.88, null, null, null, 587.33, null,
-  null, null, 523.25, null, 440.0, null, null, null,
-  // Bar 2 (Dm9)
-  null, null, 523.25, null, null, null, 659.25, null,
-  null, null, 783.99, null, 659.25, null, null, null,
-  // Bar 3 (Cmaj7)
-  null, null, 587.33, null, null, null, 523.25, null,
-  null, null, null, null, 392.0, null, null, null,
-];
-
-// Track 2: Upbeat Pop (Fmaj7 -> G6 -> Em7 -> Am7) — Home 122 BPM groove
-const CHORD_BARS: readonly (readonly number[])[] = [
-  [174.61, 220.0, 261.63, 329.63], // Bar 0: Fmaj7
-  [196.0, 246.94, 293.66, 329.63], // Bar 1: G6
-  [164.81, 196.0, 246.94, 293.66], // Bar 2: Em7
-  [220.0, 261.63, 329.63, 392.0], // Bar 3: Am7
-];
-
-const BASS_ROOTS: readonly number[] = [
-  87.31, // F2
-  98.0, // G2
-  82.41, // E2
-  110.0, // A2
-];
-
-const MODERN_LEAD: readonly (number | null)[] = [
-  // Bar 0 (Fmaj7)
-  659.25, null, null, 587.33, null, null, 523.25, null,
-  null, 523.25, 587.33, null, 659.25, null, 783.99, null,
-  // Bar 1 (G6)
-  null, null, 783.99, null, 659.25, null, 587.33, null,
-  null, 523.25, null, 587.33, 659.25, null, null, null,
-  // Bar 2 (Em7)
-  783.99, null, null, 659.25, null, null, 587.33, null,
-  null, 587.33, 659.25, null, 783.99, null, 880.0, null,
-  // Bar 3 (Am7)
-  null, null, 783.99, null, 659.25, null, 523.25, null,
-  null, 587.33, null, 659.25, 523.25, null, null, null,
-];
-
-const BGM_GAIN_BOOST = 2.1;
+function getAudioContextConstructor(): AudioContextConstructor | null {
+  if (typeof window === 'undefined') return null;
+  const win = window as unknown as {
+    AudioContext?: AudioContextConstructor;
+    webkitAudioContext?: AudioContextConstructor;
+  };
+  return win.AudioContext ?? win.webkitAudioContext ?? null;
+}
 
 function clampVolume(value: number): number {
   if (!Number.isFinite(value)) return 0.85;
   return Math.max(0, Math.min(1, value));
 }
 
-class WebAudioSoundEngine {
+// MIDI note to Hz
+function midiToHz(midi: number): number {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+/**
+ * WordPop Sunset Audio Engine:
+ * - Home BGM ("Golden Sunset Breeze"): dreamy Fmaj7 → Dm9 → Bbmaj7 → C9 Rhodes & warm harp arpeggios (80 BPM)
+ * - Study BGM ("Lo-Fi Sunset Chill"): ultra-chill Ebmaj7 → Cm9 → Abmaj7 → Bb13 lo-fi Rhodes, soft sub-bass & whisper brush (66 BPM)
+ * - Tactile wooden/ceramic 2.5D tile SFX
+ */
+class SunsetSoundEngine {
+  private ctx: AudioContext | null = null;
   private enabled = true;
   private musicEnabled = true;
-  private musicTrack: BgmTrackId = 'groove';
   private sfxVolume = 0.85;
   private musicVolume = 0.85;
-  private bgmWanted = false;
+  private bgmMode: BgmMode = 'home';
   private bgmTimer: ReturnType<typeof setInterval> | null = null;
   private bgmStep = 0;
-  private ctx: AudioContext | null = null;
-  private noiseBuffer: AudioBuffer | null = null;
+  private ducked = false;
+
+  private ensureContext(): AudioContext | null {
+    const Ctor = getAudioContextConstructor();
+    if (!Ctor) return null;
+    try {
+      if (!this.ctx) {
+        this.ctx = new Ctor();
+      }
+      if (this.ctx.state === 'suspended' && typeof this.ctx.resume === 'function') {
+        void this.ctx.resume().catch(() => {
+          // Ignore autoplay restriction until user gesture
+        });
+      }
+      return this.ctx;
+    } catch {
+      return null;
+    }
+  }
 
   public setEnabled(enabled: boolean): void {
     this.enabled = enabled;
@@ -100,6 +64,17 @@ class WebAudioSoundEngine {
 
   public isEnabled(): boolean {
     return this.enabled;
+  }
+
+  public setMusicEnabled(enabled: boolean): void {
+    this.musicEnabled = enabled;
+    if (!enabled) {
+      this.stopBgm();
+    }
+  }
+
+  public isMusicEnabled(): boolean {
+    return this.musicEnabled;
   }
 
   public setSfxVolume(volume: number): void {
@@ -118,678 +93,386 @@ class WebAudioSoundEngine {
     return this.musicVolume;
   }
 
-  public setMusicTrack(track: BgmTrackId): void {
-    if (this.musicTrack === track) {
-      return;
-    }
-    this.musicTrack = track;
-    this.bgmStep = 0;
+  public setBgmMode(mode: BgmMode): void {
+    if (this.bgmMode === mode) return;
+    this.bgmMode = mode;
     if (this.bgmTimer !== null) {
-      this.clearBgmTimer();
-      if (this.musicEnabled && this.bgmWanted) {
-        this.ensureBgmRunning();
+      this.stopBgm();
+      this.startBgm();
+    }
+  }
+
+  public getBgmMode(): BgmMode {
+    return this.bgmMode;
+  }
+
+  public setDucked(ducked: boolean): void {
+    this.ducked = ducked;
+  }
+
+  /** Plays a warm, low-pass filtered Rhodes/marimba-style note */
+  private playWarmTone(options: {
+    freq: number;
+    duration: number;
+    gain: number;
+    type?: OscillatorType;
+    attack?: number;
+    cutoff?: number;
+    delay?: number;
+  }): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime + (options.delay ?? 0);
+      const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const amp = ctx.createGain();
+
+      osc.type = options.type ?? 'triangle';
+      osc.frequency.setValueAtTime(options.freq, now);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(options.cutoff ?? 1600, now);
+      filter.Q.setValueAtTime(0.8, now);
+
+      const attack = options.attack ?? 0.025;
+      const peak = Math.max(0.0001, options.gain);
+      amp.gain.setValueAtTime(0.0001, now);
+      amp.gain.linearRampToValueAtTime(peak, now + attack);
+      amp.gain.exponentialRampToValueAtTime(0.0001, now + options.duration);
+
+      osc.connect(filter);
+      filter.connect(amp);
+      amp.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + options.duration + 0.05);
+    } catch {
+      // Safe no-op in restricted audio environments
+    }
+  }
+
+  /** Soft lo-fi brushed shaker / hat pulse for study chill beat */
+  private playSoftBrush(gain: number): void {
+    const ctx = this.ensureContext();
+    if (!ctx || typeof ctx.createBuffer !== 'function') return;
+    try {
+      const length = Math.floor(ctx.sampleRate * 0.045);
+      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (length * 0.35));
       }
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(3400, ctx.currentTime);
+      filter.Q.setValueAtTime(1.4, ctx.currentTime);
+
+      const amp = ctx.createGain();
+      amp.gain.setValueAtTime(Math.max(0.0001, gain), ctx.currentTime);
+      amp.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.045);
+
+      src.connect(filter);
+      filter.connect(amp);
+      amp.connect(ctx.destination);
+      src.start();
+    } catch {
+      // Safe no-op
     }
   }
 
-  public getMusicTrack(): BgmTrackId {
-    return this.musicTrack;
-  }
+  private tickHomeBgm(): void {
+    if (!this.musicEnabled || this.musicVolume <= 0.001) return;
+    const baseGain = 0.055 * this.musicVolume * (this.ducked ? 0.3 : 1);
 
-  public setMusicEnabled(enabled: boolean): void {
-    this.musicEnabled = enabled;
-    if (!enabled) {
-      this.clearBgmTimer();
-    } else if (this.bgmWanted) {
-      this.ensureBgmRunning();
+    // 4-bar sunset progression (Fmaj7 -> Dm9 -> Bbmaj7 -> C9), 8 eighth-note steps per bar = 32 steps
+    const chords: number[][] = [
+      [53, 60, 64, 69], // Fmaj7
+      [50, 57, 60, 64], // Dm9
+      [46, 53, 57, 62], // Bbmaj7
+      [48, 55, 58, 62], // C9
+    ];
+    const melody: Array<number | null> = [
+      72, null, 74, null, 76, null, 72, null,
+      69, null, 72, null, 74, null, null, null,
+      70, null, 72, null, 74, null, 69, null,
+      67, null, 72, null, 74, null, null, null,
+    ];
+
+    const step = this.bgmStep % 32;
+    const bar = Math.floor(step / 8);
+    const beatInBar = step % 8;
+    const chord = chords[bar];
+
+    // Warm Rhodes chord strum on beat 0 of each bar
+    if (beatInBar === 0) {
+      chord.forEach((midi, idx) => {
+        this.playWarmTone({
+          freq: midiToHz(midi),
+          duration: 2.35,
+          gain: baseGain * (idx === 0 ? 0.72 : 0.48),
+          type: 'sine',
+          attack: 0.06,
+          cutoff: 1200,
+          delay: idx * 0.03,
+        });
+      });
     }
+
+    // Gentle sunset harp arpeggio
+    if (beatInBar === 2 || beatInBar === 5) {
+      const arpNote = chord[(beatInBar + bar) % chord.length] + 12;
+      this.playWarmTone({
+        freq: midiToHz(arpNote),
+        duration: 0.9,
+        gain: baseGain * 0.36,
+        type: 'triangle',
+        attack: 0.02,
+        cutoff: 1450,
+      });
+    }
+
+    // Dreamy top melody
+    const mel = melody[step];
+    if (mel !== null) {
+      this.playWarmTone({
+        freq: midiToHz(mel),
+        duration: 0.85,
+        gain: baseGain * 0.42,
+        type: 'triangle',
+        attack: 0.03,
+        cutoff: 1550,
+      });
+    }
+
+    this.bgmStep += 1;
   }
 
-  public isMusicEnabled(): boolean {
-    return this.musicEnabled;
+  private tickStudyBgm(): void {
+    if (!this.musicEnabled || this.musicVolume <= 0.001) return;
+    // Ultra-chill lo-fi sunset beat (softer than Home so studying & pronunciation stay crisp)
+    const baseGain = 0.044 * this.musicVolume * (this.ducked ? 0.25 : 1);
+
+    // 4-bar lo-fi sunset chords (Ebmaj7 -> Cm9 -> Abmaj7 -> Bb13), 8 steps per bar = 32 steps
+    const chords: number[][] = [
+      [51, 58, 62, 67], // Ebmaj7
+      [48, 55, 58, 62], // Cm9
+      [44, 51, 55, 60], // Abmaj7
+      [46, 53, 56, 60], // Bb9sus4
+    ];
+    const bassNotes = [39, 36, 32, 34]; // Eb2, C2, Ab1, Bb1
+    const chillLead: Array<number | null> = [
+      null, null, 70, null, null, 67, null, null,
+      null, null, 65, null, 67, null, null, null,
+      null, null, 67, null, null, 63, null, null,
+      null, null, 65, null, null, 62, null, null,
+    ];
+
+    const step = this.bgmStep % 32;
+    const bar = Math.floor(step / 8);
+    const beatInBar = step % 8;
+    const chord = chords[bar];
+
+    // Muffled lo-fi Rhodes chord on beat 0 and soft ghost chord on beat 5
+    if (beatInBar === 0) {
+      chord.forEach((midi, idx) => {
+        this.playWarmTone({
+          freq: midiToHz(midi),
+          duration: 3.1,
+          gain: baseGain * 0.52,
+          type: 'sine',
+          attack: 0.09,
+          cutoff: 920,
+          delay: idx * 0.035,
+        });
+      });
+      // Cozy warm sub-bass
+      this.playWarmTone({
+        freq: midiToHz(bassNotes[bar]),
+        duration: 1.8,
+        gain: baseGain * 0.85,
+        type: 'sine',
+        attack: 0.05,
+        cutoff: 320,
+      });
+    } else if (beatInBar === 5) {
+      this.playWarmTone({
+        freq: midiToHz(chord[2]),
+        duration: 1.1,
+        gain: baseGain * 0.28,
+        type: 'sine',
+        attack: 0.05,
+        cutoff: 820,
+      });
+    }
+
+    // Whisper-soft lo-fi brushed groove on off-beats
+    if (beatInBar === 2 || beatInBar === 6) {
+      this.playSoftBrush(baseGain * 0.28);
+    }
+
+    // Sparse dreamy chill lead notes
+    const lead = chillLead[step];
+    if (lead !== null) {
+      this.playWarmTone({
+        freq: midiToHz(lead),
+        duration: 1.35,
+        gain: baseGain * 0.34,
+        type: 'triangle',
+        attack: 0.045,
+        cutoff: 1050,
+      });
+    }
+
+    this.bgmStep += 1;
   }
 
   public startBgm(): void {
-    this.bgmWanted = true;
-    if (!this.musicEnabled) {
-      return;
-    }
-    this.ensureBgmRunning();
+    if (!this.musicEnabled || this.musicVolume <= 0.001) return;
+    if (this.bgmTimer !== null) return;
+    if (!this.ensureContext()) return;
+
+    this.bgmStep = 0;
+    // Home: 80 BPM (375ms/eighth); Study Lo-Fi: 66 BPM (454ms/eighth)
+    const stepMs = this.bgmMode === 'study' ? 454 : 375;
+    const tick = () => {
+      if (this.bgmMode === 'study') {
+        this.tickStudyBgm();
+      } else {
+        this.tickHomeBgm();
+      }
+    };
+    tick();
+    this.bgmTimer = setInterval(tick, stepMs);
   }
 
   public stopBgm(): void {
-    this.bgmWanted = false;
-    this.clearBgmTimer();
-  }
-
-  private clearBgmTimer(): void {
     if (this.bgmTimer !== null) {
       clearInterval(this.bgmTimer);
       this.bgmTimer = null;
     }
   }
 
-  private ensureBgmRunning(): void {
-    if (this.bgmTimer !== null) {
-      return;
-    }
-    const ctx = this.getAudioContext();
-    if (!ctx) {
-      return;
-    }
-    const stepMs = TRACK_STEP_MS[this.musicTrack];
-    this.tickBgm();
-    this.bgmTimer = setInterval(() => {
-      this.tickBgm();
-    }, stepMs);
-  }
+  // --- Tactile Warm 2.5D Tile SFX ---
 
-  private getNoiseBuffer(ctx: AudioContext): AudioBuffer | null {
-    if (this.noiseBuffer) return this.noiseBuffer;
-    if (typeof ctx.createBuffer !== 'function') return null;
-    try {
-      const length = Math.floor(ctx.sampleRate * 0.12);
-      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < length; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
-      this.noiseBuffer = buffer;
-      return buffer;
-    } catch {
-      return null;
-    }
-  }
-
-  private playKick(ctx: AudioContext, startTime: number, volScale: number, soft = false): void {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(soft ? 112 : 145, startTime);
-    osc.frequency.exponentialRampToValueAtTime(soft ? 42 : 44, startTime + 0.08);
-    gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime((soft ? 0.048 : 0.085) * volScale, startTime + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + (soft ? 0.19 : 0.16));
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(startTime);
-    osc.stop(startTime + (soft ? 0.2 : 0.17));
-  }
-
-  private playNoisePerc(
-    ctx: AudioContext,
-    startTime: number,
-    options: { filterType: BiquadFilterType; freq: number; duration: number; peakGain: number }
-  ): void {
-    const buffer = this.getNoiseBuffer(ctx);
-    if (!buffer || typeof ctx.createBiquadFilter !== 'function') return;
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = options.filterType;
-    filter.frequency.setValueAtTime(options.freq, startTime);
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(options.peakGain, startTime + 0.004);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + options.duration);
-    src.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    src.start(startTime);
-    src.stop(startTime + options.duration + 0.01);
-  }
-
-  private playWarmPadChord(
-    ctx: AudioContext,
-    freqs: readonly number[],
-    startTime: number,
-    volScale: number,
-    options: {
-      attack: number;
-      duration: number;
-      peakGain: number;
-      cutoffStart: number;
-      cutoffEnd: number;
-      type: OscillatorType;
-    }
-  ): void {
-    const hasFilter = typeof ctx.createBiquadFilter === 'function';
-    const filter = hasFilter ? ctx.createBiquadFilter() : null;
-    const master = ctx.createGain();
-
-    if (filter) {
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(options.cutoffStart, startTime);
-      filter.frequency.exponentialRampToValueAtTime(
-        Math.max(120, options.cutoffEnd),
-        startTime + options.duration
-      );
-      filter.Q.setValueAtTime(0.8, startTime);
-      filter.connect(master);
-    }
-
-    master.gain.setValueAtTime(0.0001, startTime);
-    master.gain.linearRampToValueAtTime(options.peakGain * volScale, startTime + options.attack);
-    master.gain.exponentialRampToValueAtTime(0.0001, startTime + options.duration);
-    master.connect(ctx.destination);
-
-    for (const freq of freqs) {
-      const osc = ctx.createOscillator();
-      osc.type = options.type;
-      osc.frequency.setValueAtTime(freq, startTime);
-      osc.connect(filter ?? master);
-      osc.start(startTime);
-      osc.stop(startTime + options.duration + 0.03);
-    }
-  }
-
-  private playModernChordStab(
-    ctx: AudioContext,
-    freqs: readonly number[],
-    startTime: number,
-    volScale: number
-  ): void {
-    const hasFilter = typeof ctx.createBiquadFilter === 'function';
-    const filter = hasFilter ? ctx.createBiquadFilter() : null;
-    const master = ctx.createGain();
-
-    if (filter) {
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(1900, startTime);
-      filter.frequency.exponentialRampToValueAtTime(460, startTime + 0.28);
-      filter.Q.setValueAtTime(1.2, startTime);
-      filter.connect(master);
-    }
-
-    master.gain.setValueAtTime(0.0001, startTime);
-    master.gain.linearRampToValueAtTime(0.022 * volScale, startTime + 0.015);
-    master.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.32);
-    master.connect(ctx.destination);
-
-    for (const freq of freqs) {
-      const osc = ctx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, startTime);
-      osc.connect(filter ?? master);
-      osc.start(startTime);
-      osc.stop(startTime + 0.34);
-    }
-  }
-
-  private playModernPluck(
-    ctx: AudioContext,
-    freq: number,
-    startTime: number,
-    volScale: number
-  ): void {
-    const osc = ctx.createOscillator();
-    const harmonic = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const harmGain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, startTime);
-    harmonic.type = 'triangle';
-    harmonic.frequency.setValueAtTime(freq * 2, startTime);
-
-    gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(0.032 * volScale, startTime + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.22);
-
-    harmGain.gain.setValueAtTime(0.0001, startTime);
-    harmGain.gain.linearRampToValueAtTime(0.008 * volScale, startTime + 0.005);
-    harmGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.09);
-
-    osc.connect(gain);
-    harmonic.connect(harmGain);
-    harmGain.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(startTime);
-    harmonic.start(startTime);
-    osc.stop(startTime + 0.24);
-    harmonic.stop(startTime + 0.11);
-  }
-
-  private playSoftBell(
-    ctx: AudioContext,
-    freq: number,
-    startTime: number,
-    volScale: number,
-    duration: number,
-    peakGain: number
-  ): void {
-    const osc = ctx.createOscillator();
-    const shimmer = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const shimmerGain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, startTime);
-    shimmer.type = 'sine';
-    shimmer.frequency.setValueAtTime(freq * 2, startTime);
-
-    gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(peakGain * volScale, startTime + 0.014);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-    shimmerGain.gain.setValueAtTime(0.0001, startTime);
-    shimmerGain.gain.linearRampToValueAtTime(peakGain * 0.18 * volScale, startTime + 0.01);
-    shimmerGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.45);
-
-    osc.connect(gain);
-    shimmer.connect(shimmerGain);
-    shimmerGain.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(startTime);
-    shimmer.start(startTime);
-    osc.stop(startTime + duration + 0.02);
-    shimmer.stop(startTime + duration * 0.5);
-  }
-
-  private tickLofi(
-    ctx: AudioContext,
-    now: number,
-    step: number,
-    bar: number,
-    stepInBar: number,
-    volScale: number
-  ): void {
-    if (stepInBar === 0) {
-      this.playWarmPadChord(ctx, LOFI_CHORDS[bar], now, volScale, {
-        attack: 0.045,
-        duration: 1.55,
-        peakGain: 0.022,
-        cutoffStart: 1050,
-        cutoffEnd: 380,
-        type: 'triangle',
-      });
-    } else if (stepInBar === 10) {
-      this.playWarmPadChord(ctx, LOFI_CHORDS[bar], now, volScale, {
-        attack: 0.035,
-        duration: 0.75,
-        peakGain: 0.013,
-        cutoffStart: 820,
-        cutoffEnd: 340,
-        type: 'sine',
-      });
-    }
-
-    if (stepInBar === 0 || stepInBar === 10) {
-      this.playTone(ctx, {
-        type: 'sine',
-        startFreq: LOFI_BASS[bar],
-        startTime: now,
-        duration: stepInBar === 0 ? 0.55 : 0.32,
-        peakGain: 0.042 * volScale,
-      });
-    }
-
-    if (stepInBar === 0 || stepInBar === 10) {
-      this.playKick(ctx, now, volScale, true);
-    }
-
-    if (stepInBar === 4 || stepInBar === 12) {
-      this.playNoisePerc(ctx, now, {
-        filterType: 'bandpass',
-        freq: 1100,
-        duration: 0.06,
-        peakGain: 0.012 * volScale,
-      });
-    }
-
-    if (stepInBar % 2 === 0) {
-      this.playNoisePerc(ctx, now, {
-        filterType: 'highpass',
-        freq: 6200,
-        duration: 0.028,
-        peakGain: (stepInBar % 4 === 2 ? 0.0075 : 0.0045) * volScale,
-      });
-    }
-
-    const leadFreq = LOFI_LEAD[step];
-    if (leadFreq !== null) {
-      this.playSoftBell(ctx, leadFreq, now, volScale, 0.55, 0.024);
-    }
-  }
-
-  private tickGroove(
-    ctx: AudioContext,
-    now: number,
-    step: number,
-    bar: number,
-    stepInBar: number,
-    volScale: number
-  ): void {
-    if (stepInBar % 4 === 0) {
-      this.playKick(ctx, now, volScale);
-    }
-
-    if (stepInBar === 4 || stepInBar === 12) {
-      this.playNoisePerc(ctx, now, {
-        filterType: 'bandpass',
-        freq: 1450,
-        duration: 0.075,
-        peakGain: 0.022 * volScale,
-      });
-    }
-
-    if (stepInBar % 4 === 2) {
-      this.playNoisePerc(ctx, now, {
-        filterType: 'highpass',
-        freq: 7800,
-        duration: 0.04,
-        peakGain: 0.015 * volScale,
-      });
-    }
-
-    if (stepInBar === 0 || stepInBar === 6 || stepInBar === 12) {
-      this.playModernChordStab(ctx, CHORD_BARS[bar], now, volScale);
-    }
-
-    if (stepInBar === 2 || stepInBar === 6 || stepInBar === 10 || stepInBar === 14) {
-      const root = BASS_ROOTS[bar];
-      const bassFreq = stepInBar === 14 ? root * 1.5 : root;
-      this.playTone(ctx, {
-        type: 'sine',
-        startFreq: bassFreq,
-        startTime: now,
-        duration: 0.18,
-        peakGain: 0.055 * volScale,
-      });
-    }
-
-    const leadFreq = MODERN_LEAD[step];
-    if (leadFreq !== null) {
-      this.playModernPluck(ctx, leadFreq, now, volScale);
-    }
-  }
-
-  private tickBgm(): void {
-    if (!this.musicEnabled || !this.bgmWanted) {
-      this.clearBgmTimer();
-      return;
-    }
-    const ctx = this.getAudioContext();
-    if (!ctx || ctx.state === 'suspended') {
-      return;
-    }
-    const volScale = this.musicVolume * BGM_GAIN_BOOST;
-    if (volScale <= 0.001) {
-      this.bgmStep = (this.bgmStep + 1) % BGM_TOTAL_STEPS;
-      return;
-    }
-    try {
-      const now = ctx.currentTime;
-      const step = this.bgmStep % BGM_TOTAL_STEPS;
-      const bar = Math.floor(step / 16);
-      const stepInBar = step % 16;
-
-      if (this.musicTrack === 'lofi') {
-        this.tickLofi(ctx, now, step, bar, stepInBar, volScale);
-      } else {
-        this.tickGroove(ctx, now, step, bar, stepInBar, volScale);
-      }
-
-      this.bgmStep = (this.bgmStep + 1) % BGM_TOTAL_STEPS;
-    } catch {
-      // Safe no-op
-    }
-  }
-
-  private getAudioContext(): AudioContext | null {
-    if (this.ctx) {
-      if (this.ctx.state === 'suspended') {
-        void this.ctx.resume().catch(() => {
-          // Ignore autoplay resume errors in restricted contexts
-        });
-      }
-      return this.ctx;
-    }
-
-    const Ctor: AudioContextCtor | undefined =
-      typeof globalThis.AudioContext === 'function'
-        ? globalThis.AudioContext
-        : typeof window !== 'undefined'
-          ? (window as WindowWithWebkitAudio).webkitAudioContext
-          : undefined;
-
-    if (!Ctor) {
-      return null;
-    }
-
-    try {
-      this.ctx = new Ctor();
-      return this.ctx;
-    } catch {
-      return null;
-    }
-  }
-
-  private getSfxContext(): AudioContext | null {
-    if (!this.enabled || this.sfxVolume <= 0.001) {
-      return null;
-    }
-    return this.getAudioContext();
-  }
-
-  private playSfxTone(
-    ctx: AudioContext,
-    options: {
-      type: OscillatorType;
-      startFreq: number;
-      endFreq?: number;
-      startTime: number;
-      duration: number;
-      peakGain: number;
-    }
-  ): void {
-    this.playTone(ctx, {
-      ...options,
-      peakGain: options.peakGain * this.sfxVolume,
+  public playPop(): void {
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    this.playWarmTone({
+      freq: 520,
+      duration: 0.09,
+      gain: 0.14 * this.sfxVolume,
+      type: 'sine',
+      attack: 0.006,
+      cutoff: 2200,
     });
   }
 
-  private playTone(
-    ctx: AudioContext,
-    options: {
-      type: OscillatorType;
-      startFreq: number;
-      endFreq?: number;
-      startTime: number;
-      duration: number;
-      peakGain: number;
-    }
-  ): void {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = options.type;
-    osc.frequency.setValueAtTime(options.startFreq, options.startTime);
-    if (options.endFreq !== undefined) {
-      osc.frequency.exponentialRampToValueAtTime(
-        Math.max(20, options.endFreq),
-        options.startTime + options.duration
-      );
-    }
-
-    gain.gain.setValueAtTime(0.0001, options.startTime);
-    gain.gain.linearRampToValueAtTime(options.peakGain, options.startTime + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, options.startTime + options.duration);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(options.startTime);
-    osc.stop(options.startTime + options.duration + 0.01);
-  }
-
-  public playPop(): void {
-    const ctx = this.getSfxContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      this.playSfxTone(ctx, {
-        type: 'sine',
-        startFreq: 420,
-        endFreq: 660,
-        startTime: now,
-        duration: 0.075,
-        peakGain: 0.14,
-      });
-    } catch {
-      // Safe no-op
-    }
-  }
-
   public playPlace(): void {
-    const ctx = this.getSfxContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      this.playSfxTone(ctx, {
-        type: 'triangle',
-        startFreq: 540,
-        endFreq: 260,
-        startTime: now,
-        duration: 0.06,
-        peakGain: 0.16,
-      });
-    } catch {
-      // Safe no-op
-    }
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    this.playWarmTone({
+      freq: 390,
+      duration: 0.11,
+      gain: 0.16 * this.sfxVolume,
+      type: 'triangle',
+      attack: 0.005,
+      cutoff: 1600,
+    });
+    this.playWarmTone({
+      freq: 585,
+      duration: 0.08,
+      gain: 0.09 * this.sfxVolume,
+      type: 'sine',
+      attack: 0.006,
+      cutoff: 2000,
+      delay: 0.03,
+    });
   }
 
   public playHint(): void {
-    const ctx = this.getSfxContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      this.playSfxTone(ctx, {
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    [587.33, 739.99, 880].forEach((freq, i) => {
+      this.playWarmTone({
+        freq,
+        duration: 0.22,
+        gain: 0.11 * this.sfxVolume,
         type: 'sine',
-        startFreq: 783.99, // G5
-        startTime: now,
-        duration: 0.11,
-        peakGain: 0.13,
+        attack: 0.01,
+        cutoff: 2400,
+        delay: i * 0.06,
       });
-      this.playSfxTone(ctx, {
-        type: 'sine',
-        startFreq: 987.77, // B5
-        startTime: now + 0.07,
-        duration: 0.18,
-        peakGain: 0.14,
-      });
-    } catch {
-      // Safe no-op
-    }
+    });
   }
 
-  public playSuccess(streak = 0): void {
-    const ctx = this.getSfxContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      const semitoneBoost = Math.min(Math.max(0, streak), 8);
-      const ratio = Math.pow(2, semitoneBoost / 12);
-      const base = 523.25 * ratio; // C5 shifted up by streak
-
-      this.playSfxTone(ctx, {
+  public playSuccess(_streak?: number): void {
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      this.playWarmTone({
+        freq,
+        duration: 0.24,
+        gain: 0.13 * this.sfxVolume,
         type: 'triangle',
-        startFreq: base,
-        startTime: now,
-        duration: 0.12,
-        peakGain: 0.16,
+        attack: 0.01,
+        cutoff: 2200,
+        delay: i * 0.07,
       });
-      this.playSfxTone(ctx, {
-        type: 'sine',
-        startFreq: base * 1.25,
-        startTime: now + 0.09,
-        duration: 0.18,
-        peakGain: 0.18,
-      });
-    } catch {
-      // Safe no-op
-    }
+    });
   }
 
   public playError(): void {
-    const ctx = this.getSfxContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      this.playSfxTone(ctx, {
-        type: 'triangle',
-        startFreq: 240,
-        endFreq: 165,
-        startTime: now,
-        duration: 0.16,
-        peakGain: 0.13,
-      });
-    } catch {
-      // Safe no-op
-    }
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    this.playWarmTone({
+      freq: 220,
+      duration: 0.18,
+      gain: 0.15 * this.sfxVolume,
+      type: 'sawtooth',
+      attack: 0.008,
+      cutoff: 650,
+    });
+    this.playWarmTone({
+      freq: 185,
+      duration: 0.22,
+      gain: 0.14 * this.sfxVolume,
+      type: 'sawtooth',
+      attack: 0.008,
+      cutoff: 550,
+      delay: 0.09,
+    });
   }
 
-  public playVictory(): void {
-    const ctx = this.getSfxContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
-      notes.forEach((freq, idx) => {
-        this.playSfxTone(ctx, {
-          type: 'triangle',
-          startFreq: freq,
-          startTime: now + idx * 0.095,
-          duration: idx === notes.length - 1 ? 0.34 : 0.14,
-          peakGain: 0.17,
-        });
+  public playVictory(_stars?: number): void {
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    // Warm sunset major-9 arpeggio fanfare
+    const notes = [523.25, 659.25, 783.99, 987.77, 1174.66];
+    notes.forEach((freq, i) => {
+      this.playWarmTone({
+        freq,
+        duration: i === notes.length - 1 ? 0.6 : 0.25,
+        gain: 0.13 * this.sfxVolume,
+        type: 'triangle',
+        attack: 0.01,
+        cutoff: 2600,
+        delay: i * 0.085,
       });
-    } catch {
-      // Safe no-op
-    }
+    });
   }
 
   public playGameOver(): void {
-    const ctx = this.getSfxContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      const notes = [392.0, 349.23, 329.63, 261.63]; // G4 -> F4 -> E4 -> C4
-      notes.forEach((freq, idx) => {
-        this.playSfxTone(ctx, {
-          type: 'triangle',
-          startFreq: freq,
-          startTime: now + idx * 0.12,
-          duration: idx === notes.length - 1 ? 0.36 : 0.14,
-          peakGain: 0.14,
-        });
+    if (!this.enabled || this.sfxVolume <= 0.001) return;
+    [349.23, 311.13, 261.63].forEach((freq, i) => {
+      this.playWarmTone({
+        freq,
+        duration: 0.32,
+        gain: 0.12 * this.sfxVolume,
+        type: 'triangle',
+        attack: 0.015,
+        cutoff: 900,
+        delay: i * 0.14,
       });
-    } catch {
-      // Safe no-op
-    }
+    });
   }
 }
 
-export const soundEngine: {
-  setEnabled(enabled: boolean): void;
-  isEnabled(): boolean;
-  setMusicEnabled(enabled: boolean): void;
-  isMusicEnabled(): boolean;
-  setMusicTrack(track: BgmTrackId): void;
-  getMusicTrack(): BgmTrackId;
-  setSfxVolume(volume: number): void;
-  getSfxVolume(): number;
-  setMusicVolume(volume: number): void;
-  getMusicVolume(): number;
-  startBgm(): void;
-  stopBgm(): void;
-  playPop(): void;
-  playPlace(): void;
-  playHint(): void;
-  playSuccess(streak?: number): void;
-  playError(): void;
-  playVictory(): void;
-  playGameOver(): void;
-} = new WebAudioSoundEngine();
+export const soundEngine = new SunsetSoundEngine();

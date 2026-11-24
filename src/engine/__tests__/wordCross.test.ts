@@ -15,7 +15,8 @@ const EXPECTED_DISTRACTORS: Record<CefrLevel, number> = {
   A1: 0,
   A2: 1,
   B1: 2,
-  B2C1: 3,
+  B2: 3,
+  C1: 3,
 };
 
 function assertValidCrosswordInvariants(
@@ -114,7 +115,7 @@ function assertValidCrosswordInvariants(
       if (cell.kind === 'fixed') hasFixed = true;
     }
 
-    if (puzzle.level !== 'B2C1') {
+    if (puzzle.level !== 'B2' && puzzle.level !== 'C1') {
       expect(hasFixed).toBe(true);
     }
 
@@ -201,9 +202,9 @@ describe('generateWordCross', () => {
     }
   });
 
-  it('supports endlessTierBonus on B2C1 with increased distractors up to 4', () => {
+  it('supports endlessTierBonus on C1 with increased distractors up to 4', () => {
     const puzzle = generateWordCross({
-      level: 'B2C1',
+      level: 'C1',
       topics: [...ALL_TOPICS],
       seed: 4242,
       endlessTierBonus: 2,
@@ -211,16 +212,16 @@ describe('generateWordCross', () => {
     assertValidCrosswordInvariants(puzzle, 4);
   });
 
-  it('handles narrow Study Lab 5-puzzle session on daily x B2C1 with pool relaxation', () => {
+  it('handles narrow Study Lab 5-puzzle session on daily x C1 with pool relaxation', () => {
     const excludeWordIds: string[] = [];
     for (let round = 0; round < 5; round++) {
       const puzzle = generateWordCross({
-        level: 'B2C1',
+        level: 'C1',
         topics: ['daily'],
         seed: 7000 + round,
         excludeWordIds: [...excludeWordIds],
       });
-      assertValidCrosswordInvariants(puzzle, EXPECTED_DISTRACTORS.B2C1);
+      assertValidCrosswordInvariants(puzzle, EXPECTED_DISTRACTORS.C1);
       // First 3 rounds should stay in daily topic (relaxing to adjacent level in daily on round 4+)
       if (round < 4) {
         expect(puzzle.entries.every((e) => e.vocab.topic === 'daily')).toBe(true);

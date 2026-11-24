@@ -1,4 +1,4 @@
-export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2C1';
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
 export type VocabTopic =
   | 'daily'
@@ -34,7 +34,24 @@ export interface VocabEntry {
   /** Optional native pronunciation MP3 URL (e.g. from Free Dictionary API) */
   audioUrl?: string;
   /** Origin of this vocabulary entry */
-  source?: 'curated' | 'online';
+  source?: 'curated' | 'online' | 'custom';
+}
+
+export type DeckColor = 'coral' | 'lavender' | 'mint' | 'sunny' | 'sky';
+
+export interface WordDeck {
+  id: string;
+  name: string;
+  description: string;
+  author: string;
+  level: CefrLevel;
+  color: DeckColor;
+  words: VocabEntry[];
+  origin: 'mine' | 'community' | 'downloaded';
+  published?: boolean;
+  downloads?: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface PlayConfig {
@@ -43,6 +60,12 @@ export interface PlayConfig {
   inputMode: InputMode;
   level: CefrLevel;
   topics: VocabTopic[];
+  /** Optional custom or downloaded deck ID */
+  deckId?: string;
+  /** Display name of the selected deck */
+  deckName?: string;
+  /** Words from the selected deck to prioritize in puzzle generation */
+  customWords?: VocabEntry[];
 }
 
 export interface WordCrossCell {
@@ -139,7 +162,7 @@ export const ALL_TOPICS: readonly VocabTopic[] = [
   'culture',
 ];
 
-export const CEFR_LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2C1'];
+export const CEFR_LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1'];
 
 /** Returns the canonical spaced-repetition storage key for a vocabulary entry. */
 export function makeWordKey(wordId: string): string {
