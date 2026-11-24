@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import {
   BookOpen,
   Briefcase,
-  CloudDownload,
   Cpu,
   Flame,
   FolderHeart,
@@ -11,7 +10,6 @@ import {
   Grid3X3,
   Home,
   Leaf,
-  Loader2,
   type LucideIcon,
   Maximize2,
   Minimize2,
@@ -25,7 +23,6 @@ import {
 import { soundEngine } from '../../audio/soundEngine';
 import { Button25D, type Button25DColor } from '../../components/Button25D';
 import { Card25D } from '../../components/Card25D';
-import { PlumpStar } from '../../components/PlumpStar';
 import {
   ALL_TOPICS,
   CEFR_LEVELS,
@@ -42,11 +39,7 @@ export interface HomeHubProps {
   dailyStreak?: number;
   playedToday?: boolean;
   isFullscreen?: boolean;
-  vocabTotalCount?: number;
-  isExpandingVocab?: boolean;
-  expandVocabNotice?: string | null;
   playableDecks?: WordDeck[];
-  onExpandVocab?: () => void;
   onOpenDecks?: () => void;
   onToggleFullscreen?: () => void;
   onOpenSettings?: () => void;
@@ -73,7 +66,6 @@ const TOPIC_META: Record<
 const LEVEL_META: Record<
   CefrLevel,
   {
-    stars: number;
     labelKey: 'levels.A1' | 'levels.A2' | 'levels.B1' | 'levels.B2' | 'levels.C1';
     descKey:
       | 'levels.A1Desc'
@@ -84,11 +76,11 @@ const LEVEL_META: Record<
     activeColor: Button25DColor;
   }
 > = {
-  A1: { stars: 1, labelKey: 'levels.A1', descKey: 'levels.A1Desc', activeColor: 'sunny' },
-  A2: { stars: 2, labelKey: 'levels.A2', descKey: 'levels.A2Desc', activeColor: 'sunny' },
-  B1: { stars: 3, labelKey: 'levels.B1', descKey: 'levels.B1Desc', activeColor: 'coral' },
-  B2: { stars: 4, labelKey: 'levels.B2', descKey: 'levels.B2Desc', activeColor: 'lavender' },
-  C1: { stars: 5, labelKey: 'levels.C1', descKey: 'levels.C1Desc', activeColor: 'lavender' },
+  A1: { labelKey: 'levels.A1', descKey: 'levels.A1Desc', activeColor: 'sunny' },
+  A2: { labelKey: 'levels.A2', descKey: 'levels.A2Desc', activeColor: 'sunny' },
+  B1: { labelKey: 'levels.B1', descKey: 'levels.B1Desc', activeColor: 'coral' },
+  B2: { labelKey: 'levels.B2', descKey: 'levels.B2Desc', activeColor: 'lavender' },
+  C1: { labelKey: 'levels.C1', descKey: 'levels.C1Desc', activeColor: 'lavender' },
 };
 
 export function HomeHub({
@@ -96,11 +88,7 @@ export function HomeHub({
   dailyStreak = 0,
   playedToday = false,
   isFullscreen = false,
-  vocabTotalCount = 480,
-  isExpandingVocab = false,
-  expandVocabNotice = null,
   playableDecks = [],
-  onExpandVocab,
   onOpenDecks,
   onToggleFullscreen,
   onOpenSettings,
@@ -256,102 +244,56 @@ export function HomeHub({
         transition={{ duration: 0.16 }}
         className="flex flex-col gap-4"
       >
-        {/* Top Status Strip: Daily Streak + Live Vocabulary Bank */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)]">
-          {/* Daily Streak Banner */}
-          <div
-            data-testid="daily-streak-banner"
-            className="flex items-center justify-between gap-3 rounded-3xl border-2 border-amber-200 border-b-[5px] border-b-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/90 to-rose-50/80 px-4 py-3.5 shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={[
-                  'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-b-4 shadow-sm',
-                  playedToday
-                    ? 'bg-gradient-to-br from-[#FBBF24] to-[#FF7A59] border-[#EA580C] text-white'
-                    : 'bg-white border-amber-200 text-amber-400',
-                ].join(' ')}
-              >
-                <Flame
-                  className={`h-6 w-6 ${playedToday ? 'fill-white' : 'fill-amber-200'}`}
-                  aria-hidden="true"
-                />
-              </div>
-              <div>
-                <div className="font-display text-base sm:text-lg font-extrabold text-slate-800 leading-tight">
-                  {dailyStreak > 0
-                    ? t(lang, 'home.dailyStreakCount', { count: dailyStreak })
-                    : t(lang, 'home.dailyStreakZero')}
-                </div>
-                <p className="text-xs font-bold text-amber-800/80">
-                  {playedToday
-                    ? t(lang, 'home.dailyStreakActive')
-                    : t(lang, 'home.dailyStreakPrompt')}
-                </p>
-              </div>
+        {/* Daily Streak Banner */}
+        <div
+          data-testid="daily-streak-banner"
+          className="flex items-center justify-between gap-3 rounded-3xl border-2 border-amber-200 border-b-[5px] border-b-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/90 to-rose-50/80 px-5 py-3.5 shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={[
+                'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-b-4 shadow-sm',
+                playedToday
+                  ? 'bg-gradient-to-br from-[#FBBF24] to-[#FF7A59] border-[#EA580C] text-white'
+                  : 'bg-white border-amber-200 text-amber-400',
+              ].join(' ')}
+            >
+              <Flame
+                className={`h-6 w-6 ${playedToday ? 'fill-white' : 'fill-amber-200'}`}
+                aria-hidden="true"
+              />
             </div>
-
-            <div className="hidden sm:flex items-center gap-1" aria-hidden="true">
-              {Array.from({ length: 7 }).map((_, idx) => {
-                const lit = idx < Math.min(7, dailyStreak);
-                return (
-                  <span
-                    key={idx}
-                    className={[
-                      'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all',
-                      lit
-                        ? 'bg-gradient-to-b from-amber-400 to-orange-500 border-orange-500 text-white shadow-xs'
-                        : 'bg-white/80 border-amber-200 text-amber-200',
-                    ].join(' ')}
-                  >
-                    <Flame className={`h-3 w-3 ${lit ? 'fill-white' : ''}`} />
-                  </span>
-                );
-              })}
+            <div>
+              <div className="font-display text-base sm:text-lg font-extrabold text-slate-800 leading-tight">
+                {dailyStreak > 0
+                  ? t(lang, 'home.dailyStreakCount', { count: dailyStreak })
+                  : t(lang, 'home.dailyStreakZero')}
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-amber-800/80">
+                {playedToday
+                  ? t(lang, 'home.dailyStreakActive')
+                  : t(lang, 'home.dailyStreakPrompt')}
+              </p>
             </div>
           </div>
 
-          {/* Live Vocabulary Bank Card */}
-          <div
-            data-testid="vocab-bank-card"
-            className="flex items-center justify-between gap-2.5 rounded-3xl border-2 border-violet-200 border-b-[5px] border-b-violet-300 bg-gradient-to-r from-violet-50/90 via-fuchsia-50/70 to-white px-4 py-3.5 shadow-sm"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 font-display text-base sm:text-lg font-extrabold text-violet-950 leading-tight">
-                <BookOpen className="h-4.5 w-4.5 shrink-0 text-violet-600" aria-hidden="true" />
-                <span className="truncate">
-                  {t(lang, 'home.vocabBank', { count: vocabTotalCount })}
+          <div className="hidden sm:flex items-center gap-1.5" aria-hidden="true">
+            {Array.from({ length: 7 }).map((_, idx) => {
+              const lit = idx < Math.min(7, dailyStreak);
+              return (
+                <span
+                  key={idx}
+                  className={[
+                    'flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all',
+                    lit
+                      ? 'bg-gradient-to-b from-amber-400 to-orange-500 border-orange-500 text-white shadow-xs'
+                      : 'bg-white/80 border-amber-200 text-amber-200',
+                  ].join(' ')}
+                >
+                  <Flame className={`h-3.5 w-3.5 ${lit ? 'fill-white' : ''}`} />
                 </span>
-              </div>
-              {expandVocabNotice && (
-                <p className="mt-0.5 text-xs font-extrabold text-emerald-600">
-                  {expandVocabNotice}
-                </p>
-              )}
-            </div>
-
-            {onExpandVocab && (
-              <button
-                type="button"
-                disabled={isExpandingVocab}
-                onClick={() => {
-                  soundEngine.playPop();
-                  onExpandVocab();
-                }}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border-2 border-violet-300 border-b-[4px] border-b-violet-400 bg-white px-3 py-1.5 font-display text-xs font-extrabold text-violet-700 hover:bg-violet-50 active:translate-y-[2px] active:border-b-2 disabled:opacity-60 cursor-pointer transition-all"
-              >
-                {isExpandingVocab ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                ) : (
-                  <CloudDownload className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-                <span>
-                  {isExpandingVocab
-                    ? t(lang, 'home.expandingVocab')
-                    : t(lang, 'home.expandVocab')}
-                </span>
-              </button>
-            )}
+              );
+            })}
           </div>
         </div>
 
@@ -475,7 +417,7 @@ export function HomeHub({
 
             {wordSource === 'cefr' ? (
               <>
-                {/* 5 Standard CEFR Levels: A1, A2, B1, B2, C1 */}
+                {/* 5 Standard CEFR Levels: A1, A2, B1, B2, C1 (clean, no stars) */}
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {CEFR_LEVELS.map((lvl) => {
                     const meta = LEVEL_META[lvl];
@@ -487,28 +429,13 @@ export function HomeHub({
                         size="sm"
                         aria-pressed={isSelected}
                         onClick={() => handleSelectLevel(lvl)}
-                        className="flex-col gap-0.5 py-2 px-1.5"
+                        className="flex-col gap-0.5 py-2.5 px-2"
                       >
-                        <span className="inline-flex items-center gap-0.5" aria-hidden="true">
-                          {Array.from({ length: meta.stars }).map((_, idx) => (
-                            <PlumpStar
-                              key={idx}
-                              className="w-3 h-3"
-                              fill={
-                                isSelected
-                                  ? meta.activeColor === 'sunny'
-                                    ? '#FFFFFF'
-                                    : '#FDE047'
-                                  : '#FACC15'
-                              }
-                            />
-                          ))}
-                        </span>
-                        <span className="text-sm font-extrabold leading-tight">
+                        <span className="text-base font-extrabold leading-tight">
                           {t(lang, meta.labelKey)}
                         </span>
                         <span
-                          className={`text-[10px] font-bold leading-none ${
+                          className={`text-[11px] font-bold leading-none ${
                             isSelected
                               ? meta.activeColor === 'sunny'
                                 ? 'text-amber-950/80'

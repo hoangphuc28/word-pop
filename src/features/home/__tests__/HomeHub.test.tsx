@@ -64,7 +64,7 @@ describe('HomeHub', () => {
     const { props } = renderHomeHub();
 
     await user.click(screen.getByRole('button', { name: /^C1\s*Advanced$/i }));
-    await user.click(screen.getByRole('button', { name: /Play!/i }));
+    await user.click(screen.getByRole('button', { name: /^Practice$/i }));
 
     expect(props.onStartPlay).toHaveBeenCalledWith({
       mode: 'word-cross',
@@ -82,7 +82,7 @@ describe('HomeHub', () => {
     await user.click(screen.getByTestId('super-mode-toggle'));
     expect(screen.getByTestId('super-mode-toggle')).toHaveAttribute('aria-checked', 'true');
 
-    await user.click(screen.getByRole('button', { name: /Play!/i }));
+    await user.click(screen.getByRole('button', { name: /^Practice$/i }));
 
     expect(props.onStartPlay).toHaveBeenCalledWith({
       mode: 'word-cross',
@@ -120,7 +120,7 @@ describe('HomeHub', () => {
       }
     }
 
-    const playBtn = screen.getByRole('button', { name: /Play!/i });
+    const playBtn = screen.getByRole('button', { name: /^Practice$/i });
     expect(playBtn).toBeDisabled();
     expect(screen.getByText(/Please select at least one topic/i)).toBeInTheDocument();
 
@@ -192,7 +192,7 @@ describe('HomeHub', () => {
     await user.click(screen.getByRole('button', { name: /My & Saved Decks/i }));
     expect(screen.getByRole('button', { name: /My IELTS Verbs/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Play!/i }));
+    await user.click(screen.getByRole('button', { name: /^Practice$/i }));
     expect(props.onStartPlay).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'word-cross',

@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BookOpen,
   Check,
+  CloudDownload,
   Copy,
   Download,
   Edit3,
@@ -47,6 +48,10 @@ import {
 
 export interface DecksScreenProps {
   lang: Lang;
+  vocabTotalCount?: number;
+  isExpandingVocab?: boolean;
+  expandVocabNotice?: string | null;
+  onExpandVocab?: () => void;
   onPlayDeck: (deck: WordDeck) => void;
   onDecksChanged?: () => void;
   onBack: () => void;
@@ -65,6 +70,10 @@ const COLOR_BADGE: Record<DeckColor, string> = {
 
 export function DecksScreen({
   lang,
+  vocabTotalCount = 480,
+  isExpandingVocab = false,
+  expandVocabNotice = null,
+  onExpandVocab,
   onPlayDeck,
   onDecksChanged,
   onBack,
@@ -648,6 +657,50 @@ export function DecksScreen({
           {notice}
         </div>
       )}
+
+      {/* Built-in CEFR + Online Vocabulary Bank Card */}
+      <div
+        data-testid="vocab-bank-card"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border-2 border-violet-200 border-b-[5px] border-b-violet-300 bg-gradient-to-r from-violet-50/90 via-fuchsia-50/70 to-white px-4 py-3.5 shadow-sm"
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 font-display text-base sm:text-lg font-extrabold text-violet-950 leading-tight">
+            <BookOpen className="h-5 w-5 shrink-0 text-violet-600" aria-hidden="true" />
+            <span>{t(lang, 'home.vocabBank', { count: vocabTotalCount })}</span>
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-extrabold text-violet-700">
+              A1–C1
+            </span>
+          </div>
+          {expandVocabNotice && (
+            <p className="mt-0.5 text-xs font-extrabold text-emerald-600">
+              {expandVocabNotice}
+            </p>
+          )}
+        </div>
+
+        {onExpandVocab && (
+          <button
+            type="button"
+            disabled={isExpandingVocab}
+            onClick={() => {
+              soundEngine.playPop();
+              onExpandVocab();
+            }}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border-2 border-violet-300 border-b-[4px] border-b-violet-400 bg-white px-3.5 py-2 font-display text-xs sm:text-sm font-extrabold text-violet-700 hover:bg-violet-50 active:translate-y-[2px] active:border-b-2 disabled:opacity-60 cursor-pointer transition-all"
+          >
+            {isExpandingVocab ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <CloudDownload className="h-4 w-4" aria-hidden="true" />
+            )}
+            <span>
+              {isExpandingVocab
+                ? t(lang, 'home.expandingVocab')
+                : t(lang, 'home.expandVocab')}
+            </span>
+          </button>
+        )}
+      </div>
 
       {/* Import Share Code / JSON panel */}
       {importOpen && (

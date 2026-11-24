@@ -500,11 +500,7 @@ export default function App({
                 dailyStreak={progress.dailyStreak ?? 0}
                 playedToday={playedToday}
                 isFullscreen={isFullscreen}
-                vocabTotalCount={vocabTotalCount}
-                isExpandingVocab={isExpandingVocab}
-                expandVocabNotice={expandVocabNotice}
                 playableDecks={playableDecks}
-                onExpandVocab={() => void handleExpandVocab()}
                 onOpenDecks={() => setScreen('decks')}
                 onToggleFullscreen={handleToggleFullscreen}
                 onOpenSettings={() => setSettingsOpen(true)}
@@ -515,6 +511,10 @@ export default function App({
             {screen === 'decks' && (
               <DecksScreen
                 lang={lang}
+                vocabTotalCount={vocabTotalCount}
+                isExpandingVocab={isExpandingVocab}
+                expandVocabNotice={expandVocabNotice}
+                onExpandVocab={() => void handleExpandVocab()}
                 onPlayDeck={handlePlayDeck}
                 onDecksChanged={() => setPlayableDecks(getPlayableDecks())}
                 onBack={handleBackToHome}

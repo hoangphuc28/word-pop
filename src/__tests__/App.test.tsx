@@ -111,7 +111,7 @@ describe('App integration', () => {
     expect(modeSpy).toHaveBeenCalledWith('home');
 
     // Start WordCross directly from Practice HomeHub
-    await user.click(screen.getByRole('button', { name: /Chơi Ngay!/i }));
+    await user.click(screen.getByRole('button', { name: /^Luyện Tập$/i }));
 
     // WordCross screen is rendered and BGM switched to chill study mode
     expect(screen.queryByTestId('daily-streak-banner')).not.toBeInTheDocument();
@@ -137,9 +137,9 @@ describe('App integration', () => {
     expect(screen.getByText('Thư Viện Bộ Từ')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Quay Lại/i }));
 
-    // Switch game mode to Sentence Pop ("Điền Câu Chuẩn") and Play
+    // Switch game mode to Sentence Pop ("Điền Câu Chuẩn") and Practice
     await user.click(screen.getByRole('button', { name: /Điền Câu Chuẩn/i }));
-    await user.click(screen.getByRole('button', { name: /Chơi Ngay!/i }));
+    await user.click(screen.getByRole('button', { name: /^Luyện Tập$/i }));
 
     // Sentence Pop screen is rendered
     expect(screen.queryByTestId('daily-streak-banner')).not.toBeInTheDocument();
